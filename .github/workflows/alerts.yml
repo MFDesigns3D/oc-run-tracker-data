@@ -21,16 +21,21 @@ jobs:
       - name: Download OC Transpo alerts
         id: get
         run: |
-          code=$(curl -sSL --compressed --retry 3 --retry-delay 10 -o alerts.new -w '%{http_code}' \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36" \
-            -H "Accept: application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5" \
-            -H "Accept-Language: en-CA,en;q=0.9" \
-            "https://www.octranspo.com/en/feeds/updates-en/") || code=000
-          if [ "$code" != "200" ] || ! grep -qi '<rss\|<channel' alerts.new; then
-            echo "::warning::OC Transpo alerts feed not available (HTTP $code). Keeping the last copy."
-            head -c 400 alerts.new 2>/dev/null; echo
-            echo "ok=0" >> "$GITHUB_OUTPUT"
-            exit 0
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+          ok=0
+          for url in "https://www.octranspo.com/en/feeds/updates-en/" "https://octranspo.com/feeds/updates-en/" \
+                     "https://www.octranspo.com/feeds/updates-en/" "http://www.octranspo.com/en/feeds/updates-en/"; do
+            code=$(curl -sSL --compressed --http2 -o alerts.new -w '%{http_code}' -A "$UA" \
+              -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,application/rss+xml,*/*;q=0.8" \
+              -H "Accept-Language: en-CA,en;q=0.9" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" \
+              -H "Sec-Fetch-Site: none" -H "Upgrade-Insecure-Requests: 1" "$url") || code=000
+            echo "$url -> $code"
+            if [ "$code" = "200" ] && grep -qi '<rss\|<channel' alerts.new; then ok=1; break; fi
+            head -c 300 alerts.new 2>/dev/null | tr '\n' ' '; echo
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::warning::OC Transpo alerts feed not available ($code). Keeping the last copy."
+            echo "ok=0" >> "$GITHUB_OUTPUT"; exit 0
           fi
           sed -i '/<lastBuildDate>/d' alerts.new     # changes every request; don't commit for that alone
           mv alerts.new alerts.xml
