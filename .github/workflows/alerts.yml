@@ -1,0 +1,47 @@
+# Copies OC Transpo's alerts feed (detours, stop closures) into this repo every 15 minutes.
+# OC Transpo's website blocks Google's servers, so the Run Tracker reads this copy instead.
+name: Update alerts
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/alerts.yml']
+permissions:
+  contents: write
+concurrency:
+  group: alerts
+  cancel-in-progress: false
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download OC Transpo alerts
+        id: get
+        run: |
+          code=$(curl -sSL --compressed --retry 3 --retry-delay 10 -o alerts.new -w '%{http_code}' \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36" \
+            -H "Accept: application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5" \
+            -H "Accept-Language: en-CA,en;q=0.9" \
+            "https://www.octranspo.com/en/feeds/updates-en/") || code=000
+          if [ "$code" != "200" ] || ! grep -qi '<rss\|<channel' alerts.new; then
+            echo "::warning::OC Transpo alerts feed not available (HTTP $code). Keeping the last copy."
+            head -c 400 alerts.new 2>/dev/null; echo
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sed -i '/<lastBuildDate>/d' alerts.new     # changes every request; don't commit for that alone
+          mv alerts.new alerts.xml
+          echo "ok=1" >> "$GITHUB_OUTPUT"
+      - name: Save if it changed
+        if: steps.get.outputs.ok == '1'
+        run: |
+          git config user.name "schedule-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add alerts.xml
+          if git diff --cached --quiet; then echo "No change"; exit 0; fi
+          git commit -m "Alerts update"
+          for i in 1 2 3; do git pull --rebase -q && git push && exit 0; sleep 5; done
+          exit 1
