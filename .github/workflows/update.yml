@@ -1,0 +1,40 @@
+# Checks OC Transpo's schedule every 3 hours and rebuilds octranspo_runs.json when it changes.
+name: Update schedule
+on:
+  schedule:
+    - cron: '23 */3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download OC Transpo schedule
+        run: |
+          curl -fsSL --retry 3 --retry-delay 20 -o gtfs.zip "https://oct-gtfs-emasagcnfmcgeham.z01.azurefd.net/public-access/GTFSExport.zip"
+          unzip -q -o gtfs.zip -d gtfs
+      - name: Build schedule file
+        run: python3 build_runs.py gtfs octranspo_runs.json
+      - name: Save if it changed
+        run: |
+          git config user.name "schedule-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add octranspo_runs.json version.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Schedule update $(cat version.txt)"
+            git push
+          else
+            # GitHub pauses scheduled jobs after 60 quiet days; check in monthly so it keeps running.
+            last=$(git log -1 --format=%ct)
+            if [ $(( $(date +%s) - last )) -gt 2592000 ]; then
+              date -u +%FT%TZ > last-checked.txt
+              git add last-checked.txt
+              git commit -m "Still current"
+              git push
+            else
+              echo "No change"
+            fi
+          fi
