@@ -1,0 +1,2097 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f4f6">
+<title>Run Tracker</title>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root {
+    --bg: #f3f4f6; --card: #ffffff; --ink: #111827; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #d62d20; --ok: #15803d; --warn: #b45309; --bad: #b91c1c; --chip: #f3f4f6;
+    --hl: #fff7ed; --sel: #111827; --selInk: #ffffff; --badbg: #fde8e8; --todaybg: #eef6ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0f14; --card: #151b23; --ink: #f3f4f6; --muted: #9ca3af; --line: #263040;
+      --accent: #ff5a4e; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --chip: #1f2835;
+      --hl: #2a2116; --sel: #f3f4f6; --selInk: #0b0f14; --badbg: #3a1a1a; --todaybg: #14243a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 12px 16px 40px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 10px; }
+  h1 { font-size: 20px; margin: 0; }
+  h1 span { color: var(--accent); }
+  h2 { font-size: 17px; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 10px; padding: 8px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.small { padding: 4px 10px; font-size: 14px; }
+  button.link { border: 0; background: none; color: var(--accent); padding: 4px 6px; font-size: 14px; }
+  input, select, textarea { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 10px; width: 100%; min-width: 0; }
+  textarea { resize: vertical; }
+  input[type=date] { padding: 7px 8px; }
+  .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+  .tabs button { border: 0; padding: 8px 2px; font-size: 14px; font-weight: 600; }
+  .tabs button.on { background: var(--sel); color: var(--selInk); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+  .runhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .runname { font-weight: 700; font-size: 18px; }
+  .bus { font-size: 44px; font-weight: 800; letter-spacing: 1px; line-height: 1.1; margin: 6px 0 2px; }
+  .bus small { font-size: 16px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+  .bus.mid { font-size: 28px; }
+  .line { margin: 4px 0; }
+  .muted { color: var(--muted); }
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--chip); font-weight: 600; font-size: 14px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .relief { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--hl); }
+  .relief .big { font-size: 24px; font-weight: 800; }
+  .cxbox { margin-top: 8px; padding: 8px 12px; border-radius: 12px; background: var(--badbg); color: var(--bad); font-size: 14px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; min-width: 0; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  td { padding: 4px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+  tr.past td { color: var(--muted); }
+  tr.cur td { font-weight: 700; }
+  tr.rel td:first-child { border-left: 3px solid var(--accent); }
+  tr.cx td { color: var(--bad); text-decoration: line-through; }
+  tr.cx td.cxl { text-decoration: none; font-weight: 700; }
+  .err { color: var(--bad); }
+  .hidden { display: none !important; }
+  a.btn, button.btn { display: inline-block; text-decoration: none; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 10px; padding: 6px 12px; font-size: 14px; background: var(--card); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chips button { border-radius: 999px; padding: 3px 10px; font-size: 14px; }
+  .dayrow { border-top: 1px solid var(--line); padding: 8px 0; }
+  .dayrow .dname { font-weight: 700; width: 44px; flex: none; }
+  .piece { display: inline-flex; align-items: center; gap: 4px; background: var(--chip); border-radius: 999px;
+    padding: 2px 4px 2px 10px; font-size: 14px; margin: 2px 4px 2px 0; }
+  .piece button { border: 0; background: none; padding: 0 6px; font-size: 16px; line-height: 1; color: var(--muted); }
+  .adder { display: flex; gap: 6px; margin-top: 6px; }
+  .adder input { padding: 6px 8px; font-size: 15px; }
+  label.f { display: block; font-size: 13px; color: var(--muted); margin-bottom: 2px; }
+  #setup { position: fixed; inset: 0; background: var(--bg); z-index: 50; overflow: auto; padding: 24px 16px; }
+  #setup .box { max-width: 480px; margin: 0 auto; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  #setup label { display: block; font-weight: 600; margin: 14px 0 4px; }
+  #setup input { width: 100%; box-sizing: border-box; font-size: 16px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+  #setup .err { color: var(--bad); margin-top: 10px; min-height: 1.2em; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--sel); color: var(--selInk);
+    padding: 8px 14px; border-radius: 10px; font-size: 14px; z-index: 3000; }
+
+  /* hours */
+  .hsum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; text-align: center; }
+  .hsum b { display: block; font-size: 20px; }
+  .hsum span { font-size: 12px; color: var(--muted); }
+  .hrow { border-top: 1px solid var(--line); padding: 8px 6px; margin: 0 -6px; cursor: pointer; border-radius: 8px; }
+  .hrow.today { background: var(--todaybg); }
+  .hrow .dname { font-weight: 700; width: 48px; flex: none; line-height: 1.15; }
+  .hrow .dname small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); }
+  .hrow .hrs { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hrow .times { font-variant-numeric: tabular-nums; }
+  .hrow .meta { font-size: 13px; color: var(--muted); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--chip); margin-right: 4px; }
+  .tag.ot { color: #fff; background: #0b5fa5; }
+  .tag.stat { color: #fff; background: #6b3fa0; }
+  .tag.sick { color: #fff; background: #b45309; }
+  .tag.vac { color: #fff; background: #0f766e; }
+  .tag.sun { color: #fff; background: #9d174d; }
+  .tag.spare { color: #fff; background: #4338ca; }
+  .spmode .aRun, .spmode .aFin, .spmode .aLooseRow { display: none !important; }
+  .hrow .hrs.paid { font-weight: 600; color: var(--muted); }
+  .paytbl td { font-variant-numeric: tabular-nums; }
+  .paytbl td.n { text-align: right; white-space: nowrap; }
+  .paytbl tr.tot td { font-weight: 700; border-top: 2px solid var(--ink); }
+  .paytbl th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: right; padding: 2px 4px; }
+  .paytbl th:first-child { text-align: left; }
+  .tag.ed { color: var(--accent); }
+  .editor { margin-top: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: default; }
+  .epiece { border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 5px 12px; font-size: 14px; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--sel); color: var(--selInk); }
+  .dchip { padding: 3px 0; width: 34px; font-size: 13px; border-radius: 8px; }
+  .dchip.on { background: var(--sel); color: var(--selInk); border-color: var(--sel); }
+  .rep { margin-top: 8px; }
+  .rateset { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+  .wk { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 4px 0 2px; }
+
+  /* map overlay */
+  #mapView { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; flex-direction: column; }
+  #mapBar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--card); border-bottom: 1px solid var(--line); }
+  #mapTitle { font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #map { flex: 1; }
+  #mapInfo { padding: 10px 14px 14px; background: var(--card); border-top: 1px solid var(--line); font-size: 15px; max-height: 40vh; overflow: auto; }
+  .busIcon { background: none; border: 0; }
+  .busDot { position: relative; width: 44px; height: 44px; }
+  .busDot .arrow { position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin-left: -8px; margin-top: -30px;
+    border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 12px solid #d62d20;
+    transform-origin: 8px 30px; }
+  .busDot .num { position: absolute; inset: 6px; border-radius: 50%; background: #d62d20; color: #fff; font: 700 12px/32px system-ui, sans-serif;
+    text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  .stopDot { width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid #374151; }
+  .reliefPin { background: #111827; color: #fff; font: 700 11px system-ui, sans-serif; padding: 3px 6px; border-radius: 6px;
+    white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.4); border: 2px solid #fff; }
+</style>
+</head>
+<body>
+<div id="setup" style="display:none"><div class="box">
+  <h2 style="margin:0 0 6px">Connect Run Tracker</h2>
+  <div class="sub">One-time setup. Paste the two values from your own Apps Script copy. They're saved on this phone only.</div>
+  <label for="sUrl">Script web app URL (ends in /exec)</label>
+  <input id="sUrl" type="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec">
+  <label for="sKey">App key</label>
+  <input id="sKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <div class="err" id="sErr"></div>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button id="sSave">Connect</button>
+    <button class="small" id="sCancel" style="display:none">Cancel</button>
+  </div>
+</div></div>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span>●</span> Run Tracker</h1>
+      <div class="sub" id="today"></div>
+    </div>
+    <button class="small" id="refreshBtn">Refresh</button>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="today" class="on">Today</button>
+    <button data-tab="run">Run</button>
+    <button data-tab="bus">Bus</button>
+    <button data-tab="hours">Hours</button>
+    <button data-tab="work">My work</button>
+  </div>
+
+  <!-- TODAY -->
+  <section id="tab-today">
+    <div id="todayCards"></div>
+  </section>
+
+  <!-- RUN LOOKUP -->
+  <section id="tab-run" class="hidden">
+    <div class="card">
+      <h2>Look up any run</h2>
+      <div class="row">
+        <div class="grow"><label class="f">Run</label><input id="rRun" placeholder="e.g. 189-3" autocomplete="off"></div>
+        <div style="width:92px"><label class="f">Relief</label><input id="rRel" class="tm" placeholder="17:15" inputmode="numeric" maxlength="5" autocomplete="off"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="grow"><label class="f">Date</label><input type="date" id="rDate"></div>
+        <button class="primary" id="rBtn" style="align-self:flex-end">Go</button>
+      </div>
+      <div class="chips" id="rRecent"></div>
+    </div>
+    <div id="runCards"></div>
+  </section>
+
+  <!-- BUS LOOKUP -->
+  <section id="tab-bus" class="hidden">
+    <div class="card">
+      <h2>Find a bus</h2>
+      <div class="row">
+        <input class="grow" id="bNum" placeholder="Bus number, e.g. 4605" inputmode="numeric" autocomplete="off">
+        <button class="primary" id="bBtn">Find</button>
+      </div>
+      <div class="chips" id="bRecent"></div>
+    </div>
+    <div id="busCards"></div>
+  </section>
+
+  <!-- HOURS -->
+  <section id="tab-hours" class="hidden">
+    <div class="card">
+      <div class="row">
+        <button class="small" id="hPrev" aria-label="Previous pay period">‹</button>
+        <div class="grow" style="text-align:center"><b id="hRange"></b><div class="sub" id="hWhich"></div></div>
+        <button class="small" id="hNext" aria-label="Next pay period">›</button>
+      </div>
+      <div class="hsum" id="hSum"></div>
+      <details id="payBreak"><summary>Pay breakdown (like your paystub)</summary><div id="hPay"></div></details>
+    </div>
+    <div class="card" id="hDays"></div>
+    <div class="card">
+      <details id="payBox">
+        <summary><b style="color:var(--ink)">Pay rate &amp; overtime</b></summary>
+        <div class="sub" style="margin-top:6px">Enter your regular hourly rate (3 decimals, like 37.910). Everything else is worked out from it. When you get a raise, tap <b>Add new rate</b> and set the date it starts. Older pay periods keep the old rate.</div>
+        <div id="rateSets"></div>
+        <button class="small" id="rateAdd" style="margin-top:8px">+ Add new rate</button>
+        <div class="sub" style="margin-top:10px;line-height:1.5">
+          <b>How pay is worked out</b> (each shift counts on the day it starts):<br>
+          • <b>Overtime / stat worked:</b> 1.5×<br>
+          • <b>CLC break:</b> 30 min each, part of your shift time, paid at regular rate. Doesn't count toward OT (a 10:47 shift with 2 CLC = 9:47 work, pays 10:47). Set them per run in My work (max 2 a day). General spare: pick how many on the Hours tab. Tick <b>Add CLC</b> on a day for an extra one (e.g. when you extend)<br>
+          • <b>Day with a loose piece</b> (booked for the whole booking): 8 h regular, the rest is OT that day<br>
+          • <b>Extended</b> (extra trips picked up at the end of a shift): counts toward the 80 h only, no daily OT<br>
+          • <b>Booking clerk:</b> +$0.50/h premium for clerk hours, and your booked bus work is paid as usual. Extra session (double), or a clerk shift on a weekday off: OT + the premium, not toward the 80<br>
+          • <b>Stat:</b> 8 h regular, plus 1.5× for any hours worked<br>
+          • <b>Sick:</b> 90%, 8 h (or the full day if it's 8:54 or more)<br>
+          • <b>Vacation:</b> 8 h regular<br>
+          • <b>Sunday:</b> +25% on the whole shift, or +50% if it finishes after 23:30<br>
+          • <b>General spare, standby:</b> paid from standby start until your bus starts, up to 2 h. If the work was picked after 2 h on standby, all of it is paid. No work = 8 h. Standby days are topped up to 8 h.<br>
+          • <b>General spare, phone call</b> (9:30 and later): 30 min Callup. Doesn't count toward OT.<br>
+          • <b>All general spare</b> for the whole pay period: OT daily after 8 h. Any booked shift in the period (booked spare, regular run, stat included): OT after 80 h.
+        </div>
+        <h2 style="margin-top:14px">Overtime</h2>
+        <div class="sub">Days marked <b>Overtime</b> are all OT. The 80 h counts only hours you actually work (regular + stat worked). Stat pay, CLC breaks, sick, vacation and Sunday premium don't count.</div>
+        <label class="row" style="margin-top:8px;cursor:pointer"><input type="checkbox" id="otExtra" style="width:auto">
+          <span>Extra time on a regular day is OT</span></label>
+        <div class="sub" style="margin-left:28px">If you edit a day so it's longer than your booked work, the extra is OT.</div>
+        <label class="row" style="margin-top:8px;cursor:pointer"><input type="checkbox" id="otPeriodOn" style="width:auto">
+          <span>OT after</span>
+          <input id="otPeriod" style="width:70px" inputmode="decimal" placeholder="80">
+          <span class="sub">regular hours per pay period</span></label>
+        <label class="row" style="margin-top:8px;cursor:pointer"><input type="checkbox" id="otDaily" style="width:auto">
+          <span>OT daily after</span>
+          <input id="otDailyAfter" style="width:70px" inputmode="decimal" placeholder="8">
+          <span class="sub">hours a day</span></label>
+        <label class="f" style="margin-top:8px">Other pay rules (notes)</label>
+        <textarea id="payRules" rows="2" placeholder="Anything else to remember about pay"></textarea>
+      </details>
+    </div>
+    <div class="sub" id="hoursState"></div>
+  </section>
+
+  <!-- MY WORK -->
+  <section id="tab-work" class="hidden">
+    <div class="card">
+      <h2>Booking</h2>
+      <div class="sub">Your regular work applies between these dates. Leave Finish blank if you're not sure yet.</div>
+      <div class="row" style="margin-top:8px">
+        <div class="grow"><label class="f">Start</label><input type="date" id="wStart"></div>
+        <div class="grow"><label class="f">Finish</label><input type="date" id="wEnd"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="rotTitle">2-week rotation</h2>
+      <label class="row" style="gap:6px;margin:6px 0;cursor:pointer;font-size:14px"><input type="checkbox" id="wHoliday" style="width:auto">
+        <span><b>Holiday spare</b> this booking (different work every week, Sun–Sat)</span></label>
+      <div class="sub">Add each piece you work: run, the time you take over (Start), and the time you finish (24 h, just type 1010). Leave Finish blank to use the end of the run. Pick more days to repeat it. For a <b>general spare</b> day, tap General spare and type your spare time. Booked spare shifts go in as normal runs.</div>
+      <div id="weekRows"></div>
+      <div class="row" style="margin-top:10px" id="rotCopy">
+        <button class="small" id="copy12">Copy Week 1 → Week 2</button>
+        <button class="small" id="copy21">Copy Week 2 → Week 1</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Booking clerk relief</h2>
+      <div class="sub">Dates you're off the bus working as booking clerk (Monday to Friday only; weekends follow your normal booking). Your booked work is still paid; days with booked runs get your usual clerk hours. Change a single day or add an extra session on the Hours tab.</div>
+      <div id="clerkRows"></div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">
+        <div class="grow"><label class="f">From</label><input type="date" id="cFrom"></div>
+        <div class="grow"><label class="f">To</label><input type="date" id="cTo"></div>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <div style="width:90px"><label class="f">Clerk start</label><input id="cStart" class="tm" maxlength="5" inputmode="numeric" placeholder="1000" autocomplete="off"></div>
+        <div style="width:90px"><label class="f">Clerk finish</label><input id="cFin" class="tm" maxlength="5" inputmode="numeric" placeholder="1430" autocomplete="off"></div>
+        <button id="cAdd" style="align-self:flex-end">Add</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Holidays &amp; special days</h2>
+      <div class="sub">On these dates, this replaces your rotation. Pick <b>Off</b>, <b>Regular</b> (your usual work that day) or <b>Custom</b> (add runs by hand). Tick <b>Stat</b> for a stat holiday.</div>
+      <div id="specialRows"></div>
+      <div class="row" style="margin-top:8px">
+        <input type="date" id="sDate" class="grow">
+        <button id="sAdd">Add date</button>
+      </div>
+    </div>
+    <div class="sub" id="saveState"></div>
+    <div style="margin-top:10px"><button class="small" id="connBtn">App connection…</button></div>
+  </section>
+
+  <div class="sub" id="stamp" style="margin-top:6px"></div>
+</div>
+
+<!-- MAP -->
+<div id="mapView" class="hidden">
+  <div id="mapBar">
+    <button class="small" id="mapClose">✕</button>
+    <div id="mapTitle">Map</div>
+    <button class="small" id="mapFollow">Following</button>
+    <a class="btn" id="mapG" target="_blank">Google</a>
+  </div>
+  <div id="map"></div>
+  <div id="mapInfo">Loading…</div>
+</div>
+
+<script>
+var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var TZ = 'America/Toronto';
+
+/* ================= storage & settings ================= */
+function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function load(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+
+var PAY_ANCHOR = '2026-10-18';   // a Sunday that starts Week 1 (pay period and rotation)
+var DAYS_SUN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function defaultSettings() {
+  var week = [[], [], [], [], [], [], []];
+  // Migrate the v1 list if this phone had one, else Mike's current work.
+  var old = load('runs', null);
+  var list = old || [
+    { run: '6-9', relief: '10:10', days: [0, 1, 2, 3] },
+    { run: '189-2', relief: '17:15', days: [0, 1, 2, 3] }
+  ];
+  list.forEach(function (r) { (r.days || []).forEach(function (d) { week[d].push({ run: r.run, relief: r.relief || '' }); }); });
+  return migrateSettings({ v: 2, bookingStart: '2026-10-21', bookingEnd: '', week: week, special: [], pay: {} });
+}
+/**
+ * v2 -> v3: one week (Mon-first) becomes a 2-week rotation (14 days, Sun of Week 1 first);
+ * special days get Off / Regular / Custom + Stat; pay rates get start dates; OT settings.
+ */
+function migrateSettings(s) {
+  if (!s) return s;
+  if (s.v !== 3) {
+    var rot = [];
+    for (var r = 0; r < 14; r++) {
+      var monIdx = (r % 7 + 6) % 7;   // Sun=0 -> Mon-first index 6
+      rot.push(JSON.parse(JSON.stringify((s.week && s.week[monIdx]) || [])));
+    }
+    s.week = rot;
+    (s.special || []).forEach(function (sp) {
+      if (!sp.mode) sp.mode = sp.off ? 'off' : 'custom';
+      delete sp.off;
+      if (!sp.pieces) sp.pieces = [];
+    });
+    s.v = 3;
+  }
+  s.special = s.special || [];
+  s.clerk = s.clerk || [];     // v3.5: booking clerk relief stints [{from, to, start, finish}]
+  s.hweeks = s.hweeks || {};   // v3.7: holiday spare work, one week per booking week {sundayIso: [7 days of packed pieces]}
+  s.holiday = !!s.holiday;
+  var p = s.pay || {};
+  if (!p.rates) {
+    var first = { from: '2000-01-01', reg: p.reg || '', ot: p.ot || '', stat: p.stat || '', sick: p.sick || '' };
+    p = { rates: [first], otPeriod: '80', otDaily: false, otDailyAfter: '8', rules: p.rules || '' };
+  }
+  if (p.otPeriod == null) p.otPeriod = '80';
+  if (p.otDailyAfter == null) p.otDailyAfter = '8';
+  if (p.otRules !== 2) {      // v3.2: OT after 80 h actually worked per pay period (stat pay, sick, vacation, premiums don't count)
+    p.otPeriodOn = true; p.otExtra = false; p.otRules = 2;
+  }
+  s.pay = p;
+  return s;
+}
+var settings = migrateSettings(load('settings2', null)) || defaultSettings();
+
+/** Day of the 2-week rotation: 0 = Sunday Week 1 ... 13 = Saturday Week 2. */
+function rotIdx(iso) {
+  var diff = Math.round((Date.parse(iso + 'T12:00:00Z') - Date.parse(PAY_ANCHOR + 'T12:00:00Z')) / 86400000);
+  return ((diff % 14) + 14) % 14;
+}
+function weekNo(iso) { return rotIdx(iso) < 7 ? 1 : 2; }
+
+function saveSettingsAll() {
+  store('settings2', settings);
+  document.getElementById('saveState').textContent = 'Saving…';
+  call('saveSettings', [settings],
+    function () { document.getElementById('saveState').textContent = 'Saved to your Google account ✓'; },
+    function (e) { document.getElementById('saveState').textContent = 'Saved on this device only (' + (e.message || e) + ')'; });
+}
+
+/* ================= dates ================= */
+function torontoParts(d) {
+  var p = {};
+  new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23', weekday: 'short' })
+    .formatToParts(d).forEach(function (x) { p[x.type] = x.value; });
+  return p;
+}
+/** Today's service date (before 4 am counts as yesterday), 'YYYY-MM-DD'. */
+function serviceDate() {
+  var d = new Date();
+  if (+torontoParts(d).hour < 4) d = new Date(d.getTime() - 86400000);
+  var p = torontoParts(d);
+  return p.year + '-' + p.month + '-' + p.day;
+}
+function addDays(iso, n) {
+  var d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function dowOf(iso) { return (new Date(iso + 'T12:00:00Z').getUTCDay() + 6) % 7; } // 0 = Mon
+function prettyDate(iso) {
+  return DAYS[dowOf(iso)] + ' ' + MONTHS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10));
+}
+function shortDate(iso) { return MONTHS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)); }
+function fmtYmd(s) { return s ? MONTHS[+s.slice(4, 6) - 1] + ' ' + (+s.slice(6, 8)) : ''; }
+
+/** What you work on a date: special day first, then the weekly pattern inside the booking. */
+function workOn(iso) {
+  var regular = settings.week[rotIdx(iso)] || [];
+  for (var i = 0; i < settings.special.length; i++) {
+    var s = settings.special[i];
+    if (s.date !== iso) continue;
+    var label = s.stat ? 'stat holiday' : 'special day';
+    if (s.mode === 'off') return { pieces: [], why: 'off (' + label + ')', stat: !!s.stat };
+    if (s.mode === 'regular') return { pieces: regular, why: label, stat: !!s.stat };
+    return { pieces: s.pieces || [], why: label, stat: !!s.stat };
+  }
+  if (settings.bookingStart && iso < settings.bookingStart) return { pieces: [], why: 'before your booking starts' };
+  if (settings.bookingEnd && iso > settings.bookingEnd) return { pieces: [], why: 'after your booking ends' };
+  if (settings.holiday) {
+    var hw = settings.hweeks[sundayOf(iso)];
+    return { pieces: hw ? hGet(sundayOf(iso), new Date(iso + 'T12:00:00Z').getUTCDay()) : [], why: hw ? '' : 'holiday spare week not entered yet' };
+  }
+  return { pieces: regular, why: '' };
+}
+/* ---------- holiday spare (v3.7) ----------
+ * Different work every week (Sun-Sat) for the whole booking. Pieces are packed into short strings
+ * ("6-9|10:10|17:15|1|L" or "S|12:30") so 13+ weeks fit in the settings storage limit.
+ */
+function sundayOf(iso) { return addDays(iso, -new Date(iso + 'T12:00:00Z').getUTCDay()); }
+function packPiece(p) {
+  if (p.spare) return 'S|' + p.spare;
+  return [p.run, p.relief || '', p.finish || '', clcCount(p.clc), p.loose ? 'L' : ''].join('|').replace(/\|+$/, '');
+}
+function unpackPiece(t) {
+  var a = String(t).split('|');
+  if (a[0] === 'S' && a.length === 2) return { spare: a[1] };
+  var p = { run: a[0], relief: a[1] || '' };
+  if (a[2]) p.finish = a[2];
+  if (a[3]) p.clc = clcCount(a[3]);
+  if (a[4] === 'L') p.loose = true;
+  return p;
+}
+function hGet(sun, d) { var w = settings.hweeks[sun]; return w && w[d] ? w[d].map(unpackPiece) : []; }
+function hSet(sun, d, list) {
+  var w = settings.hweeks[sun] || (settings.hweeks[sun] = [[], [], [], [], [], [], []]);
+  w[d] = list.map(packPiece);
+}
+/** Sundays of every week in the booking (needs Start; uses 13 weeks if Finish is blank). */
+function bookingWeeks() {
+  if (!settings.bookingStart) return [];
+  var first = sundayOf(settings.bookingStart), last = settings.bookingEnd ? sundayOf(settings.bookingEnd) : addDays(first, 7 * 12), out = [];
+  for (var s = first; s <= last && out.length < 60; s = addDays(s, 7)) out.push(s);
+  return out;
+}
+function nextWork(fromIso) {
+  for (var i = 1; i <= 21; i++) {
+    var d = addDays(fromIso, i), w = workOn(d);
+    if (w.pieces.length) return { date: d, pieces: w.pieces };
+  }
+  return null;
+}
+
+/* ================= helpers ================= */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+  return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function fmtDur(sec) {
+  var neg = sec < 0; sec = Math.abs(Math.round(sec / 60));
+  var h = Math.floor(sec / 60), m = sec % 60;
+  var s = (h ? h + ' h ' : '') + m + ' min';
+  return neg ? s + ' ago' : 'in ' + s;
+}
+function lateText(d) {
+  if (d == null) return '';
+  var m = Math.round(d / 60);
+  if (Math.abs(d) < 60) return '<span class="chip ok">On time</span>';
+  if (m > 0) return '<span class="chip ' + (m >= 5 ? 'bad' : 'warn') + '">' + m + ' min late</span>';
+  return '<span class="chip warn">' + (-m) + ' min early</span>';
+}
+function ageText(a) { return a == null ? '' : (a < 90 ? a + ' s' : Math.round(a / 60) + ' min') + ' ago'; }
+function speedText(sp) {
+  if (sp == null) return '';
+  var k = Math.round(sp * 3.6);
+  return k < 3 ? 'stopped' : k + ' km/h';
+}
+function toast(msg) {
+  var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2200);
+}
+/* v4.0: talks to your Apps Script with fetch() (page is hosted on GitHub Pages, so no Apps Script banner). */
+var API = load('api', null);   // {u: '/exec URL', k: 'app key'}
+function apiPost(fn, args, api) {
+  api = api || API;
+  var ctl = window.AbortController ? new AbortController() : null;
+  var timer = ctl ? setTimeout(function () { ctl.abort(); }, 60000) : null;
+  return fetch(api.u, {
+    method: 'POST', redirect: 'follow', signal: ctl ? ctl.signal : undefined,
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // plain text avoids a CORS preflight
+    body: JSON.stringify({ fn: fn, k: api.k, a: args || [] })
+  }).then(function (r) {
+    if (timer) clearTimeout(timer);
+    return r.text();
+  }).then(function (t) {
+    var j;
+    try { j = JSON.parse(t); } catch (e) { throw new Error('Script did not answer (check it is deployed with access: Anyone)'); }
+    if (!j.ok) { var er = new Error(j.error || 'Script error'); er.code = j.code; throw er; }
+    return j.result;
+  }, function (e) {
+    if (timer) clearTimeout(timer);
+    throw new Error(e && e.name === 'AbortError' ? 'Timed out' : 'No connection');
+  });
+}
+function call(fn, args, ok, fail) {
+  if (!API) { showSetup(); return; }
+  apiPost(fn, args).then(ok, function (e) {
+    if (e.code === 'badkey' || e.code === 'nokey') showSetup(e.message);
+    (fail || function (e) { toast(e.message || String(e)); })(e);
+  });
+}
+function showSetup(msg) {
+  var el = document.getElementById('setup');
+  if (el.style.display === 'block' && !msg) return;
+  document.getElementById('sUrl').value = API ? API.u : '';
+  document.getElementById('sKey').value = API ? API.k : '';
+  document.getElementById('sErr').textContent = msg || '';
+  document.getElementById('sCancel').style.display = API ? '' : 'none';
+  el.style.display = 'block';
+}
+function setupFromHash() {
+  // a setup link like  …/#u=<exec url>&k=<key>  fills this in automatically
+  if (location.hash.length < 4) return;
+  var q = {};
+  location.hash.slice(1).split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); });
+  if (q.u && q.k) {
+    API = { u: q.u.trim(), k: q.k.trim() }; store('api', API);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+}
+document.getElementById('sSave').onclick = function () {
+  var u = document.getElementById('sUrl').value.trim(), k = document.getElementById('sKey').value.trim();
+  var err = document.getElementById('sErr');
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(u)) { err.textContent = 'That URL should start with https://script.google.com/ and end in /exec'; return; }
+  if (!k) { err.textContent = 'Paste the app key'; return; }
+  err.textContent = 'Checking…';
+  apiPost('ping', [], { u: u, k: k }).then(function () {
+    API = { u: u, k: k }; store('api', API);
+    location.reload();
+  }, function (e) { err.textContent = e.message; });
+};
+document.getElementById('sCancel').onclick = function () { document.getElementById('setup').style.display = 'none'; };
+
+/* ================= stops (for map + nearest stop) ================= */
+var STOPS = null;
+function loadStops(cb) {
+  var cached = load('stops', null);
+  if (cached) STOPS = cached;
+  call('getStops', [cached ? cached.stamp : null], function (res) {
+    if (!res.same) { STOPS = res; store('stops', res); }
+    if (cb) cb();
+  }, function () { if (cb) cb(); });
+}
+var stopIndex = null;
+function stopById(id) {
+  if (!STOPS) return null;
+  if (!stopIndex || stopIndex.stamp !== STOPS.stamp) {
+    stopIndex = { stamp: STOPS.stamp, m: {} };
+    STOPS.ids.forEach(function (x, i) { stopIndex.m[x] = i; });
+  }
+  var i = stopIndex.m[id];
+  return i == null ? null : { id: id, name: STOPS.names[i], lat: STOPS.lat[i], lon: STOPS.lon[i] };
+}
+function nearestStop(lat, lon) {
+  if (!STOPS) return null;
+  var best = -1, bd = 1e9, kx = Math.cos(lat * Math.PI / 180);
+  for (var i = 0; i < STOPS.lat.length; i++) {
+    var dy = STOPS.lat[i] - lat, dx = (STOPS.lon[i] - lon) * kx, d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = i; }
+  }
+  if (best < 0) return null;
+  return { name: STOPS.names[best], m: Math.round(Math.sqrt(bd) * 111320) };
+}
+function nearText(b) {
+  var n = b ? nearestStop(b.lat, b.lon) : null;
+  if (!n) return '';
+  return n.m < 60 ? 'at ' + n.name : (n.m < 1000 ? n.m + ' m from ' : (n.m / 1000).toFixed(1) + ' km from ') + n.name;
+}
+
+/* ================= run card ================= */
+function runCard(r, now, opts) {
+  opts = opts || {};
+  var title = esc(r.input) + (r.reliefInput ? ' <span class="muted" style="font-weight:500">from ' + esc(r.reliefInput) + '</span>' : '');
+  var h = '<div class="card"><div class="runhead"><div class="runname">' + title + '</div>';
+  if (opts.close) h += '<button class="small" onclick="' + opts.close + '">✕</button>';
+  h += '</div>';
+  if (r.noRun && r.date) {
+    var di = r.date.slice(0, 4) + '-' + r.date.slice(4, 6) + '-' + r.date.slice(6, 8);
+    return h + '<div class="err line">No run ' + esc(r.input) + ' on ' + prettyDate(di) + '.</div>' +
+      '<div class="muted line" style="font-size:14px">Weekend and holiday work uses different runs. Check the run number on your paddle for that day.</div></div>';
+  }
+  if (r.error) return h + '<div class="err line">' + esc(r.error) + '</div></div>';
+
+  var t = r.trips, cur = r.curTrip, b = r.bus;
+  if (r.status === 'schedule') {
+    var iso = r.date.slice(0, 4) + '-' + r.date.slice(4, 6) + '-' + r.date.slice(6, 8);
+    h += '<div class="bus mid">' + prettyDate(iso) + '</div>';
+    h += '<div class="line muted">Schedule only. Live bus info shows on the day. Out ' + t[0].start + ' (Route ' + esc(t[0].route) +
+      ' from ' + esc(t[0].from) + '), last trip ends ' + t[t.length - 1].end + '.</div>';
+  } else if (r.status === 'on_trip') {
+    var ct = t[cur];
+    h += '<div class="bus">' + esc(b.id) + ' <small>bus</small></div>';
+    h += '<div class="line">Route <b>' + esc(ct.route) + '</b> → ' + esc(ct.head) +
+      ' <span class="muted">(trip ' + (cur + 1) + ' of ' + t.length + ')</span> ' + lateText(r.delay) + '</div>';
+    if (r.next) h += '<div class="line muted">Next: ' + esc(r.next.name) + ' · sched ' + r.next.sched + ' · now ' + r.next.pred + '</div>';
+    else h += '<div class="line muted">Lateness not available right now.</div>';
+  } else if (r.status === 'between_trips') {
+    var nt = null;
+    for (var i = 0; i < t.length; i++) if (t[i].startEpoch > now - 60) { nt = t[i]; break; }
+    h += '<div class="bus">' + esc(b.id) + ' <small>bus · between trips</small></div>';
+    h += '<div class="line">' + (nt ? 'Next trip ' + nt.start + ': Route ' + esc(nt.route) + ' from ' + esc(nt.from)
+      : 'No more trips. Likely heading in.') + '</div>';
+  } else if (r.status === 'layover') {
+    var lo = r.layover;
+    if (r.likely) {
+      h += '<div class="bus">' + esc(r.likely.id) + ' <small>likely bus · on layover</small></div>';
+      h += '<div class="line muted" style="font-size:14px">Best guess: the closest out-of-service bus to ' + esc(lo.nextFrom) +
+        ' (' + r.likely.m + ' m). Confirmed once trip ' + (lo.nextTrip + 1) + ' starts.</div>';
+    } else {
+      h += '<div class="bus mid">On layover</div>';
+      h += '<div class="line muted">The bus number shows again when trip ' + (lo.nextTrip + 1) + ' starts.</div>';
+    }
+    h += '<div class="line">Until <b>' + lo.until + '</b> · next: Route ' + esc(lo.nextRoute) + ' from ' + esc(lo.nextFrom) + '</div>';
+  } else if (r.status === 'not_out') {
+    h += '<div class="bus mid">Not out yet</div>';
+    h += '<div class="line muted">First trip ' + t[0].start + ': Route ' + esc(t[0].route) + ' from ' + esc(t[0].from) +
+      '. The bus number shows once it starts its first trip.</div>';
+  } else if (r.status === 'done') {
+    h += '<div class="bus mid">Finished for today</div>';
+    h += '<div class="line muted">Last trip ended ' + t[t.length - 1].end + '.</div>';
+  } else {
+    h += '<div class="bus mid">No GPS</div>';
+    h += '<div class="line muted">This run should be out, but its bus isn\'t reporting right now. Try again in a minute.</div>';
+  }
+  if (r.cancelled && r.cancelled.length) {
+    h += '<div class="cxbox"><b>⚠ Cancelled trip' + (r.cancelled.length > 1 ? 's' : '') + ' on this run:</b> ' +
+      r.cancelled.map(function (i) { return t[i].start + ' Route ' + esc(t[i].route) + ' from ' + esc(t[i].from); }).join('; ') + '</div>';
+  }
+  if (b) {
+    var near = nearText(b);
+    h += '<div class="line muted" style="font-size:14px">' + (near ? esc(near) + ' · ' : '') + speedText(b.speed) + ' · GPS ' + ageText(b.age) + '</div>';
+  }
+  if (r.live) {
+    h += '<div class="row" style="margin-top:6px"><button class="btn" onclick=\'openRunMap(' + esc(JSON.stringify({ run: r.input, relief: r.reliefInput })) +
+      ')\'>🗺️ Live map</button></div>';
+  }
+
+  if (r.relief) {
+    var rel = r.relief;
+    h += '<div class="relief"><div class="muted" style="font-size:13px">' + (r.live ? 'YOUR RELIEF' : 'RELIEF') + '</div>';
+    h += '<div><b>' + rel.sched + '</b> at <b>' + esc(rel.name) + '</b></div>';
+    h += '<div class="muted" style="font-size:14px">Route ' + esc(rel.route) + ' → ' + esc(rel.head) + ' (trip ' + (rel.trip + 1) + ')' +
+      (rel.approx ? ' · closest timepoint to ' + esc(r.reliefInput) : '') + '</div>';
+    if (rel.cancelled) h += '<div class="bad"><b>This trip is marked cancelled.</b></div>';
+    if (r.live) {
+      var when = rel.predEpoch || rel.schedEpoch, diff = when - now;
+      if (diff > -600) {
+        h += '<div class="big">' + fmtDur(diff) + '</div>';
+        if (rel.pred) h += '<div>Predicted <b>' + rel.pred + '</b> ' + lateText(rel.predEpoch - rel.schedEpoch) + '</div>';
+        else if (diff > 0) h += '<div class="muted" style="font-size:14px">Scheduled time. OC Transpo predictions show up closer to the time.</div>';
+      } else {
+        h += '<div class="muted">Relief time has passed.</div>';
+      }
+    }
+    h += '</div>';
+  } else if (r.reliefNote) {
+    h += '<div class="relief warn">' + esc(r.reliefNote) + '</div>';
+  }
+  if (r.feedErr) h += '<div class="err line" style="font-size:14px">Live data problem: ' + esc(r.feedErr) + '</div>';
+
+  h += '<details><summary>All ' + t.length + ' trips on ' + esc(r.run) + '</summary><table>';
+  t.forEach(function (x, i) {
+    var cls = (r.live && x.endEpoch < now ? 'past ' : '') + (i === cur ? 'cur ' : '') + (r.relief && r.relief.trip === i ? 'rel ' : '') + (x.cx ? 'cx' : '');
+    h += '<tr class="' + cls + '"><td>' + x.start + '</td><td><b>' + esc(x.route) + '</b></td><td>' + esc(x.from) +
+      ' → ' + esc(x.to) + '</td><td>' + x.end + '</td>' + (x.cx ? '<td class="cxl">CANCELLED</td>' : '') + '</tr>';
+  });
+  h += '</table></details></div>';
+  return h;
+}
+
+/* ================= tabs ================= */
+var tab = 'today';
+function showTab(t) {
+  tab = t;
+  [].forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === t); });
+  ['today', 'run', 'bus', 'hours', 'work'].forEach(function (x) { document.getElementById('tab-' + x).classList.toggle('hidden', x !== t); });
+  document.getElementById('refreshBtn').classList.toggle('hidden', t === 'work' || t === 'hours');
+  setStamp('');
+  if (t === 'work') renderWork();
+  if (t === 'hours') renderHours();
+  refresh();
+}
+[].forEach.call(document.querySelectorAll('#tabs button'), function (b) {
+  b.onclick = function () { showTab(b.getAttribute('data-tab')); };
+});
+
+function setStamp(txt) { document.getElementById('stamp').textContent = txt || ''; }
+function stampNow(feed) {
+  setStamp('Updated ' + new Date().toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }) +
+    ' · refreshes every 30 s' + (feed ? ' · schedule good ' + fmtYmd(feed.feedFrom) + '–' + fmtYmd(feed.feedTo) : ''));
+}
+function firstFeed(res) { for (var i = 0; i < res.results.length; i++) if (res.results[i].feed) return res.results[i].feed; return null; }
+
+/* ---------- Today ---------- */
+var busyToday = false;
+function renderHeader() {
+  var iso = serviceDate(), w = workOn(iso);
+  document.getElementById('today').textContent = prettyDate(iso) + ' · Week ' + weekNo(iso) + ' · ' +
+    (w.pieces.length ? w.pieces.map(pieceLabel).join(', ') : 'Off today');
+}
+function refreshToday() {
+  renderHeader();
+  var iso = serviceDate(), w = workOn(iso), box = document.getElementById('todayCards');
+  if (!w.pieces.length) {
+    var nw = nextWork(iso);
+    box.innerHTML = '<div class="card"><div class="runname">Off today 🎉</div><div class="muted">' +
+      (w.why ? 'Today is ' + esc(w.why) + '. ' : '') +
+      (nw ? 'Next work: <b>' + prettyDate(nw.date) + '</b>, ' + nw.pieces.map(function (p) { return esc(pieceLabel(p)) + (p.relief ? ' from ' + esc(p.relief) : ''); }).join(' and ') + '.'
+          : 'No work set for the next 3 weeks. Set it up in My work.') +
+      '</div><div class="muted" style="margin-top:6px">Use the Run or Bus tab to check anything.</div></div>';
+    setStamp('');
+    return;
+  }
+  var sp = spareOf(w.pieces), rp = runPieces(w.pieces), spHtml = sp ? spareCard(sp, iso) : '';
+  if (!rp.length) { box.innerHTML = spHtml; setStamp(''); return; }
+  if (busyToday) return;
+  busyToday = true;
+  if (!box.innerHTML) box.innerHTML = spHtml + '<div class="card muted">Loading…</div>';
+  setStamp('Updating…');
+  call('getRuns', [rp.map(function (p) { return { run: p.run, relief: p.relief }; })], function (res) {
+    busyToday = false;
+    captureBuses(iso, res);
+    if (tab !== 'today') return;
+    box.innerHTML = spHtml + res.results.map(function (r) { return runCard(r, res.now); }).join('');
+    stampNow(firstFeed(res));
+  }, function (e) {
+    busyToday = false;
+    box.innerHTML = '<div class="card err">' + esc(e.message || e) + '</div>'; setStamp('');
+  });
+}
+
+/* ---------- Run lookup ---------- */
+var runQ = null, busyRun = false;
+function renderRecent(id, key, onPick) {
+  var list = load(key, []), el = document.getElementById(id);
+  el.innerHTML = list.map(function (x, i) { return '<button data-i="' + i + '">' + esc(x.label) + '</button>'; }).join('');
+  [].forEach.call(el.querySelectorAll('button'), function (b) { b.onclick = function () { onPick(list[+b.getAttribute('data-i')]); }; });
+}
+function pushRecent(key, item) {
+  var list = load(key, []).filter(function (x) { return x.label !== item.label; });
+  list.unshift(item); store(key, list.slice(0, 8));
+}
+function doRunLookup() {
+  var run = document.getElementById('rRun').value.trim();
+  if (!run) return;
+  runQ = { run: run, relief: document.getElementById('rRel').value.trim(), date: document.getElementById('rDate').value || serviceDate() };
+  pushRecent('recentRuns', { label: run + (runQ.relief ? ' ' + runQ.relief : ''), run: run, relief: runQ.relief });
+  renderRecent('rRecent', 'recentRuns', pickRecentRun);
+  document.getElementById('runCards').innerHTML = '<div class="card muted">Looking up…</div>';
+  refreshRun();
+}
+function pickRecentRun(x) {
+  document.getElementById('rRun').value = x.run; document.getElementById('rRel').value = x.relief || ''; doRunLookup();
+}
+function refreshRun() {
+  if (!runQ || busyRun) return;
+  busyRun = true; setStamp('Updating…');
+  call('getRuns', [[{ run: runQ.run, relief: runQ.relief }], runQ.date], function (res) {
+    busyRun = false;
+    if (tab !== 'run') return;
+    document.getElementById('runCards').innerHTML = res.results.map(function (r) { return runCard(r, res.now); }).join('');
+    if (res.live) stampNow(firstFeed(res)); else setStamp('');
+  }, function (e) { busyRun = false; document.getElementById('runCards').innerHTML = '<div class="card err">' + esc(e.message || e) + '</div>'; });
+}
+document.getElementById('rBtn').onclick = doRunLookup;
+document.getElementById('rRun').addEventListener('keydown', function (e) { if (e.key === 'Enter') doRunLookup(); });
+
+/* ---------- Bus lookup ---------- */
+var busQ = null, busyBus = false;
+function busCard(r, now) {
+  var h = '<div class="card"><div class="runhead"><div class="runname">Bus ' + esc(r.id) + '</div></div>';
+  if (r.error) return h + '<div class="err line">' + esc(r.error) + '</div></div>';
+  if (!r.found) return h + '<div class="bus mid">Not reporting</div><div class="line muted">Bus ' + esc(r.id) +
+    ' isn\'t sending GPS right now. It may be parked with the power off, in the shop, or the number may be wrong.</div></div>';
+  var b = r.bus, rr = r.runResult;
+  h += '<div class="bus">' + esc(b.id) + ' <small>bus</small></div>';
+  if (r.inService) {
+    var ct = rr.trips[rr.curTrip];
+    h += '<div class="line"><span class="chip ok">In service</span> Run <b>' + esc(rr.run) + '</b> · Route <b>' + esc(ct.route) + '</b> → ' + esc(ct.head) +
+      ' ' + lateText(rr.delay) + '</div>';
+    if (rr.next) h += '<div class="line muted">Next: ' + esc(rr.next.name) + ' · sched ' + rr.next.sched + ' · now ' + rr.next.pred + '</div>';
+  } else if (r.run) {
+    h += '<div class="line"><span class="chip warn">Between trips / deadheading</span> last on run <b>' + esc(r.run) + '</b></div>';
+    if (rr && rr.trips) {
+      var nt = null;
+      for (var i = 0; i < rr.trips.length; i++) if (rr.trips[i].startEpoch > now - 60) { nt = rr.trips[i]; break; }
+      if (nt) h += '<div class="line muted">Run ' + esc(rr.run) + '\'s next trip: ' + nt.start + ' Route ' + esc(nt.route) + ' from ' + esc(nt.from) + '</div>';
+    }
+  } else {
+    h += '<div class="line"><span class="chip warn">Not in service</span> deadheading, parked, or not signed in to a trip</div>';
+  }
+  var near = nearText(b);
+  h += '<div class="line muted" style="font-size:14px">' + (near ? esc(near) + ' · ' : '') + speedText(b.speed) + ' · GPS ' + ageText(b.age) + '</div>';
+  h += '<div class="row" style="margin-top:6px"><button class="btn" onclick="openBusMap(\'' + esc(b.id) + '\')">🗺️ Live map</button>' +
+    (r.run ? '<button class="btn" onclick="lookRun(\'' + esc(r.run) + '\')">See run ' + esc(r.run) + '</button>' : '') + '</div>';
+  return h + '</div>';
+}
+function doBusLookup() {
+  var n = document.getElementById('bNum').value.trim();
+  if (!n) return;
+  busQ = n;
+  pushRecent('recentBuses', { label: n, id: n });
+  renderRecent('bRecent', 'recentBuses', function (x) { document.getElementById('bNum').value = x.id; doBusLookup(); });
+  document.getElementById('busCards').innerHTML = '<div class="card muted">Looking for bus ' + esc(n) + '…</div>';
+  refreshBus();
+}
+function refreshBus() {
+  if (!busQ || busyBus) return;
+  busyBus = true; setStamp('Updating…');
+  call('getBuses', [[busQ]], function (res) {
+    busyBus = false;
+    if (tab !== 'bus') return;
+    document.getElementById('busCards').innerHTML = res.results.map(function (r) { return busCard(r, res.now); }).join('');
+    stampNow(null);
+  }, function (e) { busyBus = false; document.getElementById('busCards').innerHTML = '<div class="card err">' + esc(e.message || e) + '</div>'; });
+}
+function lookRun(run) {
+  document.getElementById('rRun').value = run; document.getElementById('rRel').value = '';
+  document.getElementById('rDate').value = serviceDate();
+  showTab('run'); doRunLookup();
+}
+document.getElementById('bBtn').onclick = doBusLookup;
+document.getElementById('bNum').addEventListener('keydown', function (e) { if (e.key === 'Enter') doBusLookup(); });
+
+/* ================= hours & pay ================= */
+var EARLY_MIN = 5;               // be at the relief point 5 min early
+var TYPES = [['reg', 'Regular'], ['ot', 'Overtime'], ['stat', 'Stat holiday'], ['sick', 'Sick'], ['vac', 'Vacation'], ['off', 'Off']];
+var LOGS = {};                   // periodStart -> { days: {iso: entry}, auto: {'iso|run': busId} }
+var H = { ps: null, plans: {}, planKey: null, planning: false, open: null, draft: null };
+
+function typeName(t) { for (var i = 0; i < TYPES.length; i++) if (TYPES[i][0] === t) return TYPES[i][1]; return t; }
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function periodStartOf(iso) {
+  var diff = Math.round((Date.parse(iso + 'T12:00:00Z') - Date.parse(PAY_ANCHOR + 'T12:00:00Z')) / 86400000);
+  return addDays(PAY_ANCHOR, Math.floor(diff / 14) * 14);
+}
+/** '1005', '10:05', '9', '905' -> '10:05'.  '' -> ''.  Bad -> null. */
+function normTime(t) {
+  var s = String(t == null ? '' : t).trim();
+  if (!s) return '';
+  var dg = s.replace(/\D/g, '');
+  if (!/^\d{1,4}$/.test(dg) || /[^\d:h.\s]/i.test(s)) return null;
+  var h, m;
+  if (dg.length <= 2) { h = +dg; m = 0; } else { h = +dg.slice(0, -2); m = +dg.slice(-2); }
+  if (h > 23 || m > 59) return null;
+  return pad2(h) + ':' + pad2(m);
+}
+function mins(t) { var n = normTime(t); if (!n) return null; return +n.slice(0, 2) * 60 + +n.slice(3, 5); }
+function minusEarly(relief) {
+  var m = mins(relief); if (m == null) return '';
+  m -= EARLY_MIN; if (m < 0) m += 1440;
+  return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
+}
+function pieceMins(p) {
+  var a = mins(p.start), b = mins(p.finish);
+  if (a == null || b == null) return 0;
+  if (b < a) b += 1440;   // past midnight
+  return b - a;
+}
+function hm(m) { return Math.floor(m / 60) + ':' + pad2(m % 60); }
+function emptyLog() { return { days: {}, auto: {} }; }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function setHoursState(t) { document.getElementById('hoursState').textContent = t; }
+
+function getLogFor(ps, cb) {
+  if (LOGS[ps] && LOGS[ps]._server) return cb(LOGS[ps]);
+  if (!LOGS[ps]) LOGS[ps] = load('log_' + ps, null) || emptyLog();
+  call('getLog', [ps], function (s) {
+    if (s) { s._server = true; LOGS[ps] = s; store('log_' + ps, s); } else LOGS[ps]._server = true;
+    cb(LOGS[ps]);
+  }, function () { cb(LOGS[ps]); });
+}
+function saveLogFor(ps, quiet) {
+  var log = LOGS[ps]; if (!log) return;
+  store('log_' + ps, log);
+  if (!quiet) setHoursState('Saving…');
+  var copy = clone(log); delete copy._server;
+  call('saveLog', [ps, copy],
+    function () { if (!quiet) setHoursState('Saved to your Google account ✓'); },
+    function (e) { setHoursState('Saved on this device only (' + (e.message || e) + ')'); });
+}
+
+/* ---------- bus numbers (v3.7) ----------
+ * log.auto['iso|run'] = the bus you took over (first hour after your relief).
+ * log.busChg['iso|run'] = later buses if there was a bus change, and log.busLog[iso] = the lines added to that day's notes.
+ * A change is only recorded after the new bus shows on your run on 2 refreshes in a row (no GPS glitches).
+ */
+var BUS_PENDING = {};
+function busFor(lg, iso, run) {
+  var k = iso + '|' + run, a = lg.auto[k] || '';
+  return [a].concat((lg.busChg && lg.busChg[k]) || []).filter(Boolean).join(', ');
+}
+function withBusNotes(notes, lg, iso) {
+  var add = ((lg.busLog && lg.busLog[iso]) || []).filter(function (l) { return String(notes || '').indexOf(l) < 0; });
+  return add.length ? (notes ? notes.replace(/\s+$/, '') + '\n' : '') + add.join('\n') : (notes || '');
+}
+function nowHHMM() { var d = new Date(); return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d); }
+/** When your piece of a run ends (epoch seconds), from My work's finish, else the end of the run's last trip. */
+function pieceEndEpoch(iso, r) {
+  var bp = runPieces(workOn(iso).pieces).filter(function (p) { return p.run === r.input; })[0];
+  var f = bp && mins(bp.finish), rel = bp && mins(bp.relief);
+  if (f != null && rel != null && r.relief) return r.relief.schedEpoch + (((f - rel) % 1440 + 1440) % 1440) * 60;
+  var last = r.trips[r.trips.length - 1];
+  return last ? (last.endEpoch || last.startEpoch + 3600) : 0;
+}
+/** Remember which bus you're driving, from the live feed on the Today tab, and note any bus change. */
+function captureBuses(iso, res) {
+  if (!res || !res.live) return;
+  var ps = periodStartOf(iso);
+  getLogFor(ps, function (log) {
+    var changed = false;
+    log.busChg = log.busChg || {}; log.busLog = log.busLog || {};
+    res.results.forEach(function (r) {
+      if (!r.bus || r.bus.likely || r.status !== 'on_trip' || !r.trips) return;
+      var k = iso + '|' + r.input, id = String(r.bus.id), first;
+      if (r.relief) first = r.curTrip >= r.relief.trip && res.now >= r.relief.schedEpoch - 1200 && res.now <= r.relief.schedEpoch + 3600;
+      else first = res.now <= r.trips[0].startEpoch + 3600;
+      if (first && !(log.busChg[k] || []).length) {
+        if (log.auto[k] !== id) { log.auto[k] = id; changed = true; }
+        return;
+      }
+      // after the first hour, until your piece ends: watch for a bus change
+      if (!log.auto[k]) return;
+      if (r.relief && r.curTrip < r.relief.trip) return;
+      if (res.now > pieceEndEpoch(iso, r) + 300) return;
+      var chain = log.busChg[k] || [], cur = chain.length ? chain[chain.length - 1] : log.auto[k];
+      if (id === cur) { delete BUS_PENDING[k]; return; }
+      if (BUS_PENDING[k] !== id) { BUS_PENDING[k] = id; return; }   // seen once: wait for the next refresh
+      delete BUS_PENDING[k];
+      chain.push(id); log.busChg[k] = chain;
+      var line = 'Bus change on ' + r.input + ': bus ' + cur + ' → bus ' + id + ' (' + nowHHMM() + ')';
+      (log.busLog[iso] = log.busLog[iso] || []).push(line);
+      var e = log.days[iso];
+      if (e && String(e.notes || '').indexOf(line) < 0) e.notes = (e.notes ? e.notes.replace(/\s+$/, '') + '\n' : '') + line;
+      changed = true;
+      toast(line);
+    });
+    if (changed) { saveLogFor(ps, true); if (tab === 'hours' && H.ps === ps) drawHours(); }
+  });
+}
+
+/* ---------- general spare ----------
+ * A rotation/special day can hold a spare entry {spare: '12:30'} instead of (or with) runs.
+ * On the Hours tab a spare day carries v.spare = {slot, call, standby, sbStart, picked}.
+ */
+var SPARE_CALL_FROM = 9 * 60 + 30;  // spares from 9:30 on get a phone call at home
+var CALL_MIN = 30;                  // each call pays 30 min (Callup), not counted toward OT
+var STANDBY_FREE_MIN = 120;         // standby paid up to 2 h before the bus (unless work came after 2 h)
+var SPARE_DAY_MIN = 480;            // no work = 8 h; standby days topped up to 8 h
+function pieceLabel(p) { return p.spare ? 'Spare ' + p.spare : p.run; }
+function runPieces(list) { return (list || []).filter(function (p) { return !p.spare; }); }
+function spareOf(list) { for (var i = 0; i < (list || []).length; i++) if (list[i].spare) return list[i]; return null; }
+function spareCalls(slot) { var m = mins(slot); return m != null && m >= SPARE_CALL_FROM; }
+function defaultSpare(slot) { return { slot: slot, call: spareCalls(slot), standby: !spareCalls(slot), sbStart: slot, picked: '', clc: 0 }; }
+function fromMins(m) { m = ((m % 1440) + 1440) % 1440; return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60); }
+/**
+ * Spare pay for one day (minutes): standby paid, unpaid gap before the bus, top-up to 8 h, call pay.
+ * Work picked within 2 h of standby start: standby paid until the bus starts, max 2 h.
+ * Work picked after 2 h: standby paid right up to the bus. No work: 8 h.
+ */
+function spareCalc(v) {
+  var out = { standby: 0, unpaid: 0, topup: 0, call: 0, sbStart: null, end: null };
+  var s = v && v.spare;
+  if (!s || v.type === 'off' || v.type === 'vac' || v.type === 'sick') return out;
+  if (s.call) out.call = CALL_MIN;
+  var drive = v.pieces.reduce(function (a, p) { return a + pieceMins(p); }, 0);
+  var S = mins(s.sbStart || s.slot);
+  if (!s.standby || S == null) return out;
+  out.sbStart = S;
+  var rel = function (t) { return (t - S + 1440) % 1440; };
+  var starts = v.pieces.map(function (p) { return mins(p.start); }).filter(function (x) { return x != null; }).map(rel);
+  if (!starts.length) { out.standby = SPARE_DAY_MIN; out.end = S + SPARE_DAY_MIN; }
+  else {
+    var B = Math.min.apply(null, starts), P = mins(s.picked);
+    var picked = P == null ? 0 : rel(P);
+    out.standby = picked > STANDBY_FREE_MIN ? B : Math.min(B, STANDBY_FREE_MIN);
+    out.unpaid = B - out.standby;
+  }
+  if (out.standby + drive < SPARE_DAY_MIN) out.topup = SPARE_DAY_MIN - out.standby - drive;
+  return out;
+}
+function spareCard(sp, iso) {
+  var calls = spareCalls(sp.spare);
+  return '<div class="card"><div class="runhead"><div class="runname">General spare · ' + esc(sp.spare) + '</div><span class="tag spare">Spare</span></div>' +
+    '<div class="line muted">' + (calls
+      ? 'You get a call at home (30 min Callup). Go in for standby, or pick work and go straight to it.'
+      : 'Standby in the office from ' + esc(sp.spare) + '. Standby is paid up to 2 h before your bus starts. No work = 8 h.') + '</div>' +
+    '<div class="line muted" style="font-size:14px">Once you have your work, add it on the Hours tab so your hours and pay are right.</div>' +
+    '<div class="row" style="margin-top:6px"><button class="btn" onclick="openDayEditor(\'' + iso + '\')">Enter today\'s spare work</button></div></div>';
+}
+function openDayEditor(iso) {
+  H.ps = periodStartOf(iso); H.open = iso; H.draft = null;
+  showTab('hours');
+}
+
+/** One day as shown: your saved edits if any, else the booking + schedule. */
+function dayView(iso, bookedOnly) {
+  var lg = LOGS[periodStartOf(iso)] || emptyLog();
+  var e = bookedOnly ? null : lg.days[iso];
+  if (e) {
+    var v = clone(e); v.saved = true; v.notes = v.notes || ''; v.spare = v.spare || null; v.clerk = v.clerk || null; v.clcAdd = !!v.clcAdd;
+    v.pieces.forEach(function (p) { if (!p.bus || p.bus === lg.auto[iso + '|' + p.run]) p.bus = busFor(lg, iso, p.run); });
+    v.notes = withBusNotes(v.notes, lg, iso);
+    return v;
+  }
+  var w = workOn(iso), plan = H.plans[iso] || [], rp = runPieces(w.pieces), sp = spareOf(w.pieces), cs = clerkStintOn(iso);
+  return {
+    saved: false, type: (rp.length || sp) ? (w.stat ? 'stat' : 'reg') : 'off', notes: withBusNotes('', lg, iso), clcAdd: false,
+    spare: sp ? defaultSpare(sp.spare) : null,
+    clerk: cs && rp.length ? defaultClerk(cs) : null,
+    pieces: rp.map(function (p, i) {
+      var pl = plan[i] || {};
+      return {
+        run: p.run,
+        start: pl.start || minusEarly(p.relief),
+        finish: normTime(p.finish) || pl.finish || '',
+        bus: busFor(lg, iso, p.run),
+        routes: (pl.routes || []).join(', '),
+        loose: !!p.loose
+      };
+    })
+  };
+}
+/** Minutes worked: driving plus paid standby (a top-up to 8 h isn't counted here).
+ *  Booking clerk day: your booked bus work is what's paid. With no bus work that day, the clerk session itself counts. */
+function dayMins(v) {
+  if (v.type === 'off' || v.type === 'vac') return 0;
+  var m = v.pieces.reduce(function (s, p) { return s + pieceMins(p); }, 0) + spareCalc(v).standby;
+  if (v.clerk && !v.pieces.length) m += clerkMainMins(v.clerk);
+  return m;
+}
+/* ---------- booking clerk relief (v3.5) ----------
+ * My work holds stints: settings.clerk = [{from, to, start, finish}].
+ * A day inside a stint that has booked runs gets v.clerk = {start, finish, xStart, xFinish}.
+ * Pay: your booked bus work is paid as normal (counts toward the 80), plus the clerk premium for every clerk hour.
+ * Extra session (double): all OT (doesn't count toward the 80), plus the clerk premium.
+ */
+var CLERK_PREM_M = 500;             // booking clerk premium: $0.50/h, in thousandths of a dollar
+function isWeekend(iso) { var d = new Date(iso + 'T12:00:00Z').getUTCDay(); return d === 0 || d === 6; }
+/** Clerk stint covering a date. Clerks work Monday to Friday only, so weekends never get one. */
+function clerkStintOn(iso) {
+  if (isWeekend(iso)) return null;
+  var l = settings.clerk || [];
+  for (var i = 0; i < l.length; i++) if (l[i].from && l[i].from <= iso && (!l[i].to || iso <= l[i].to)) return l[i];
+  return null;
+}
+function defaultClerk(cs) { return { start: cs.start || '', finish: cs.finish || '', xStart: '', xFinish: '' }; }
+function clerkMainMins(c) { return c ? pieceMins({ start: c.start, finish: c.finish }) : 0; }
+function clerkXMins(c) { return c ? pieceMins({ start: c.xStart, finish: c.xFinish }) : 0; }
+/* ---------- CLC breaks (v3.6, v3.7) ----------
+ * Each booked piece carries its CLC breaks from My work (p.clc = 0, 1 or 2; max 2 per day).
+ * General spare day: the Hours editor asks how many CLC are in the work picked (v.spare.clc).
+ * A day can add one more (v.clcAdd), e.g. when you extend. Each CLC = 30 min of the shift's own time,
+ * paid at the regular rate ("CLC Break Paid"). Booking sheet "9:47 pays 10:47": the shift is 10:47 on the
+ * clock = 9:47 work (counts toward the 80 / OT) + 2 CLC (paid, never OT, no Sunday premium).
+ */
+var CLC_MIN = 30;
+function clcCount(n) { n = parseInt(n, 10); return isNaN(n) || n < 0 ? 0 : Math.min(n, 9); }
+var CLC_DAY_MAX = 2;                 // booked work never has more than 2 CLC in a day
+/** CLC breaks in your booked work for a date (from My work). */
+function bookedDayClc(iso) {
+  return Math.min(CLC_DAY_MAX, runPieces(workOn(iso).pieces).reduce(function (s, p) { return s + clcCount(p.clc); }, 0));
+}
+/** CLC minutes for a day: booked work (or the spare's picked work) + the extra one if ticked. */
+function dayClc(iso, v) {
+  if (v.type === 'off' || v.type === 'vac' || v.type === 'sick') return 0;
+  var n = v.spare ? Math.min(CLC_DAY_MAX, clcCount(v.spare.clc)) : (v.pieces.length ? bookedDayClc(iso) : 0);
+  return (n + (v.clcAdd ? 1 : 0)) * CLC_MIN;
+}
+/** Minutes of extended trips (picked up at the end of a shift): count toward the 80 only, never daily OT. */
+function extMins(v) { return v.pieces.reduce(function (s, p) { return s + (p.ext ? pieceMins(p) : 0); }, 0); }
+
+/** '80', '80:00', '7.5' -> minutes. Bad/blank -> fallback. */
+function durMins(t, fallback) {
+  var s = String(t == null ? '' : t).trim(), m;
+  if ((m = s.match(/^(\d{1,3})(?:\.(\d+))?$/))) return Math.round(parseFloat(s) * 60);
+  if ((m = s.match(/^(\d{1,3}):(\d{2})$/))) return +m[1] * 60 + +m[2];
+  return fallback;
+}
+/** The pay rates in force on a date (latest set whose start date is on or before it). */
+function ratesFor(iso) {
+  var list = (settings.pay.rates || []).slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+  var hit = null;
+  list.forEach(function (r) { if (!r.from || r.from <= iso) hit = r; });
+  return hit || list[0] || null;
+}
+/* ---------- pay rules (v3.2) ----------
+ * You enter only the regular rate. All other rates are percentages of it, worked out in
+ * thousandths of a dollar and rounded the way the paystub does (37.910 x 25% = 9.478).
+ * Every rule goes by the day the shift STARTS: a whole shift sits in the row of its start day.
+ */
+var PAID_DAY_MIN = 480;              // stat, vacation, short sick days pay 8 h
+var SICK_FULL_MIN = 534;             // sick days of 8:54 or more pay the full day
+var SUN_LATE_MIN = 23 * 60 + 30;     // Sunday shift finishing after 23:30 gets +50% instead of +25%
+var LOOSE_DAILY_MIN = 480;           // a day with a loose piece (biddable tripper) pays daily OT after 8 h
+var PAY_LINES = [                    // code, paystub name, % of regular rate
+  ['reg', 'Regular Pay', 100],
+  ['statw', 'Stat Holiday Worked', 150],
+  ['statp', 'Stat Holiday Paid', 100],
+  ['clc', 'CLC Break Paid', 100],
+  ['ot', 'Overtime Time & Half', 150],
+  ['sick', 'IPP (90% paid)', 90],
+  ['vac', 'Vacation Leave - Paid', 100],
+  ['callup', 'Callup', 100],
+  ['clerk', 'Booking Clerk Premium', 0],   // fixed $/h (CLERK_PREM_M), not a % of regular
+  ['sun25', 'Sunday Premium (25%)', 25],
+  ['sun50', 'Sunday Premium (50%)', 50]
+];
+/** Regular rate on a date, in thousandths of a dollar (37.910 -> 37910). null if not set. */
+function regRateM(iso) {
+  var r = ratesFor(iso);
+  var x = r ? parseFloat(String(r.reg == null ? '' : r.reg).replace(/[$,\s]/g, '')) : NaN;
+  return isNaN(x) || x <= 0 ? null : Math.round(x * 1000);
+}
+function pctRateM(regM, pct) { return Math.round(regM * pct / 100); }
+function fmtRateM(m) { var s = String(m % 1000); while (s.length < 3) s = '0' + s; return Math.floor(m / 1000) + '.' + s; }
+function fmtMoney(cents) {
+  var neg = cents < 0, c = Math.abs(cents), d = String(Math.floor(c / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (neg ? '-$' : '$') + d + '.' + pad2(c % 100);
+}
+/** Paystub hours: minutes -> hundredths of an hour (9:42 -> 970). */
+function hundredths(min) { return Math.round(min * 100 / 60); }
+function isStatDate(iso) {
+  for (var i = 0; i < settings.special.length; i++) if (settings.special[i].date === iso && settings.special[i].stat) return true;
+  return false;
+}
+function isSunday(iso) { return new Date(iso + 'T12:00:00Z').getUTCDay() === 0; }
+/** Minutes after the start day's midnight when the day's last piece finishes (past midnight = over 1440). */
+function dayEndMins(v) {
+  var prevEnd = null, last = null;
+  v.pieces.forEach(function (p) {
+    var a = mins(p.start), b = mins(p.finish);
+    if (a == null || b == null) return;
+    if (prevEnd != null) { while (a < prevEnd - 720) a += 1440; }   // a later piece that starts after midnight
+    while (b < a) b += 1440;
+    prevEnd = b; last = last == null ? b : Math.max(last, b);
+  });
+  return last;
+}
+/** Your booked work for a date (ignores your edits). 0 if any booked time is still unknown. */
+function bookedMins(iso) {
+  var b = dayView(iso, true), total = 0;
+  if (!b.pieces.length) return 0;
+  for (var i = 0; i < b.pieces.length; i++) {
+    var p = b.pieces[i];
+    if (mins(p.start) == null || mins(p.finish) == null) return 0;
+    total += pieceMins(p);
+  }
+  return Math.max(0, total - bookedDayClc(iso) * CLC_MIN);   // work time: booked CLC breaks left out
+}
+/**
+ * One pay period: hours by type, and pay lines like the paystub.
+ * - Stat day (stat type, or a stat date in My work): 8 h regular, plus 1.5x for hours worked. No Sunday premium.
+ * - Overtime day: all 1.5x.  Regular day: extra past booked work / daily / period limits become OT if those are on.
+ * - Day with a loose piece (biddable tripper): first 8 h regular (they count toward the 80), the rest daily OT.
+ * - Sick: 90%, 8 h, or the whole day if it's 8:54+.  Vacation: 8 h regular.
+ * - Sunday: +25% on every hour worked (OT too), or +50% if the shift finishes after 23:30. Premium adds pay, not hours.
+ */
+function calcPeriod(ps) {
+  var P = settings.pay;
+  var cap = P.otPeriodOn ? durMins(P.otPeriod, 4800) : Infinity, dayCap = durMins(P.otDailyAfter, 480);
+  var out = { days: {}, clc: 0, reg: 0, ot: 0, stat: 0, statPaid: 0, sick: 0, vac: 0, sun: 0, call: 0, topup: 0, total: 0, clerk: 0, ext: 0,
+    lines: [], cents: 0, pay: 0, payOk: true }, regSoFar = 0, byKey = {};
+  // General spare every working day of the period -> OT daily after 8 h instead of after 80 h.
+  // Any booked shift (booked spare, regular run, worked stat) in the period cancels that.
+  var views = [], anySpare = false, anyBooked = false;
+  for (var j = 0; j < 14; j++) {
+    var vj = dayView(addDays(ps, j));
+    views.push(vj);
+    var wk = vj.type === 'reg' || (vj.type === 'stat' && (vj.pieces.length || vj.spare));
+    if (!wk) continue;
+    if (vj.spare) anySpare = true; else anyBooked = true;
+  }
+  out.spareDaily = anySpare && !anyBooked;
+  function add(code, iso, min) {
+    if (!min) return;
+    var regM = regRateM(iso);
+    if (regM == null) { out.payOk = false; return; }
+    var pct = 0;
+    PAY_LINES.forEach(function (l) { if (l[0] === code) pct = l[2]; });
+    var rateM = code === 'clerk' ? CLERK_PREM_M : pctRateM(regM, pct), key = code + '|' + rateM;
+    if (!byKey[key]) { byKey[key] = { code: code, rateM: rateM, min: 0 }; out.lines.push(byKey[key]); }
+    byKey[key].min += min;
+  }
+  for (var i = 0; i < 14; i++) {
+    var iso = addDays(ps, i), v = views[i], m = dayMins(v), sc = spareCalc(v);
+    var worked = v.type === 'reg' || v.type === 'ot' || v.type === 'stat';
+    var d = { v: v, m: m, sc: sc, spare: !!v.spare, reg: 0, ot: 0, stat: 0, statPaid: 0, sick: 0, vac: 0, sun: 0, sunPct: 0,
+      call: worked ? sc.call : 0, topup: 0, isStat: false, clerk: 0, xot: 0, ext: 0, clc: worked ? Math.min(dayClc(iso, v), m) : 0 };
+    var w = m - d.clc;   // work time: the clock time minus CLC breaks. This is what counts toward the 80 / OT.
+    d.w = w;
+    d.isStat = v.type === 'stat' || isStatDate(iso);
+    if (d.isStat) {
+      d.statPaid = PAID_DAY_MIN;
+      if (worked) { d.stat = w; regSoFar += w; }   // hours worked on a stat count toward the 80 h (paid 1.5x either way)
+    } else if (v.type === 'ot') {
+      d.ot = w;
+    } else if (v.type === 'sick') {
+      d.sick = m >= SICK_FULL_MIN ? m : PAID_DAY_MIN;
+    } else if (v.type === 'vac') {
+      d.vac = PAID_DAY_MIN;
+    } else if (v.type === 'reg' && v.clerk && !v.pieces.length && !v.spare) {
+      d.ot = w;   // clerk shift on a weekday off: all OT (not toward the 80), premium added below
+    } else if (v.type === 'reg') {
+      d.topup = sc.topup;
+      d.ext = extMins(v);   // extended trips skip the booked-work and daily checks; they only add to the 80
+      var rm = w + d.topup - d.ext, spareDaily = out.spareDaily && d.spare;
+      if (P.otExtra && v.saved) {
+        var bm = bookedMins(iso);
+        if (bm && rm > bm) { d.ot += rm - bm; rm = bm; }
+      }
+      d.loose = v.pieces.some(function (p) { return p.loose; });
+      var dc = d.loose || spareDaily ? (P.otDaily ? Math.min(dayCap, LOOSE_DAILY_MIN) : LOOSE_DAILY_MIN) : (P.otDaily ? dayCap : Infinity);
+      if (rm > dc) { d.ot += rm - dc; rm = dc; }
+      rm += d.ext;
+      var room = spareDaily ? rm : Math.max(0, cap - regSoFar);
+      d.reg = Math.min(rm, room); d.ot += rm - d.reg; regSoFar += d.reg;
+    }
+    // Booking clerk: premium on every clerk hour; the extra session is all OT (not toward the 80).
+    if (worked && v.clerk) {
+      d.xot = clerkXMins(v.clerk); d.ot += d.xot;
+      d.clerk = clerkMainMins(v.clerk) + d.xot;
+    }
+    // Sunday premium: every hour worked on a Sunday shift, OT included. A stat overrides it.
+    if (!d.isStat && (v.type === 'reg' || v.type === 'ot') && (m || d.xot) && isSunday(iso)) {
+      var end = dayEndMins(v);
+      if (sc.end != null && (end == null || sc.end > end)) end = sc.end;   // standby day with no work
+      if (v.clerk) [[v.clerk.start, v.clerk.finish], [v.clerk.xStart, v.clerk.xFinish]].forEach(function (t) {
+        var a = mins(t[0]), b = mins(t[1]);
+        if (a == null || b == null) return;
+        if (b < a) b += 1440;
+        if (end == null || b > end) end = b;
+      });
+      d.sun = w + d.xot; d.sunPct = end != null && end > SUN_LATE_MIN ? 50 : 25;
+    }
+    add('reg', iso, d.reg); add('ot', iso, d.ot); add('statw', iso, d.stat); add('statp', iso, d.statPaid); add('clc', iso, d.clc);
+    add('sick', iso, d.sick); add('vac', iso, d.vac); add('callup', iso, d.call); add('clerk', iso, d.clerk); add(d.sunPct === 50 ? 'sun50' : 'sun25', iso, d.sun);
+    ['reg', 'ot', 'stat', 'statPaid', 'sick', 'vac', 'sun', 'call', 'topup', 'clerk', 'ext', 'clc'].forEach(function (k) { out[k] += d[k]; });
+    if (worked) out.total += w + d.xot;
+    out.days[iso] = d;
+  }
+  var order = PAY_LINES.map(function (l) { return l[0]; });
+  out.lines.sort(function (a, b) { return order.indexOf(a.code) - order.indexOf(b.code) || a.rateM - b.rateM; });
+  out.lines.forEach(function (l) {
+    PAY_LINES.forEach(function (x) { if (x[0] === l.code) l.name = x[1]; });
+    l.hrs = hundredths(l.min);
+    l.cents = Math.round(l.hrs * l.rateM / 1000);
+    out.cents += l.cents;
+  });
+  out.pay = out.cents / 100;
+  return out;
+}
+
+function renderHours() {
+  if (!H.ps) H.ps = periodStartOf(serviceDate());
+  var ps = H.ps;
+  document.getElementById('hDays').innerHTML = '<div class="muted">Loading…</div>';
+  getLogFor(ps, function () {
+    if (H.ps !== ps) return;
+    var req = [];
+    for (var i = 0; i < 14; i++) {
+      var d = addDays(ps, i), w = workOn(d);
+      var wr = runPieces(w.pieces);
+      if (wr.length) req.push({ date: d, pieces: wr });
+    }
+    var key = JSON.stringify(req);
+    if (req.length && H.planKey !== key) {
+      H.planKey = key; H.planning = true;
+      call('planDays', [req], function (res) {
+        H.planning = false;
+        res.forEach(function (x) { H.plans[x.date] = x.pieces; });
+        if (tab === 'hours' && H.ps === ps) drawHours();
+      }, function (e) {
+        H.planning = false; H.planKey = null;
+        setHoursState('Couldn\'t read the schedule (' + (e.message || e) + '). Times use your relief minus 5 min.');
+        if (tab === 'hours') drawHours();
+      });
+    }
+    drawHours();
+  });
+}
+
+function drawHours() {
+  var ps = H.ps, today = serviceDate(), end = addDays(ps, 13);
+  if (H.open && !H.draft && LOGS[ps]) H.draft = dayView(H.open);
+  var cur = periodStartOf(today) === ps;
+  document.getElementById('hRange').textContent = 'Sun ' + shortDate(ps) + ' – Sat ' + shortDate(end);
+  document.getElementById('hWhich').textContent = cur
+    ? 'Current pay period · Week ' + weekNo(today)
+    : (ps < periodStartOf(today) ? 'Past pay period' : 'Upcoming pay period');
+
+  var c = calcPeriod(ps), rows = ['', ''];
+  for (var i = 0; i < 14; i++) {
+    var iso = addDays(ps, i);
+    rows[i < 7 ? 0 : 1] += dayRowHtml(iso, c.days[iso], iso === today);
+  }
+  var extra = [];
+  if (c.stat) extra.push('Stat worked ' + hm(c.stat));
+  if (c.statPaid) extra.push('Stat pay ' + hm(c.statPaid));
+  if (c.sick) extra.push('Sick ' + hm(c.sick));
+  if (c.vac) extra.push('Vacation ' + hm(c.vac));
+  if (c.sun) extra.push('Sunday premium ' + hm(c.sun));
+  if (c.clc) extra.push('CLC breaks ' + hm(c.clc));
+  if (c.call) extra.push('Call pay ' + hm(c.call));
+  if (c.topup) extra.push('Spare top-up ' + hm(c.topup));
+  if (c.clerk) extra.push('Clerk premium ' + hm(c.clerk));
+  if (c.ext) extra.push('Extended ' + hm(c.ext));
+  if (c.spareDaily) extra.push('All general spare: OT daily after 8 h');
+  document.getElementById('hSum').innerHTML =
+    '<div><b>' + hm(c.total) + '</b><span>Hours worked</span></div>' +
+    '<div><b>' + hm(c.reg) + '</b><span>Regular</span></div>' +
+    '<div><b>' + hm(c.ot) + '</b><span>Overtime</span></div>' +
+    '<div><b>' + (c.payOk ? fmtMoney(c.cents).replace(/\.\d\d$/, '') : '—') + '</b><span>' + (c.payOk ? 'Est. gross' : 'Add pay rate') + '</span></div>' +
+    (extra.length ? '<div class="sub" style="grid-column:1/-1">' + extra.join(' · ') + '</div>' : '');
+  document.getElementById('hPay').innerHTML = payTableHtml(c);
+  document.getElementById('hDays').innerHTML =
+    (H.planning ? '<div class="sub" style="margin-bottom:4px">Reading the schedule…</div>' : '') +
+    '<div class="wk">Week 1</div>' + rows[0] + '<div class="wk" style="margin-top:10px">Week 2</div>' + rows[1] +
+    '<div class="sub" style="margin-top:8px">Tap a day to change times, bus, routes or add notes. Start = relief minus 5 min.</div>';
+  wireHours();
+}
+
+function payTableHtml(c) {
+  if (!c.payOk) return '<div class="sub" style="margin-top:6px">Add your regular rate under <b>Pay rate &amp; overtime</b> below.</div>';
+  if (!c.lines.length) return '<div class="sub" style="margin-top:6px">Nothing paid in this period yet.</div>';
+  var h = '<table class="paytbl"><tr><th>Line</th><th>Rate</th><th>Hrs</th><th>Earnings</th></tr>';
+  c.lines.forEach(function (l) {
+    h += '<tr><td>' + esc(l.name) + '</td><td class="n">' + fmtRateM(l.rateM) + '</td><td class="n">' + (l.hrs / 100).toFixed(2) +
+      '</td><td class="n">' + fmtMoney(l.cents) + '</td></tr>';
+  });
+  h += '<tr class="tot"><td colspan="3">Estimated gross</td><td class="n">' + fmtMoney(c.cents) + '</td></tr></table>';
+  return h + '<div class="sub" style="margin-top:6px">Before tax and deductions. Doesn\'t include lines the app doesn\'t know yet (OHP, etc.).</div>';
+}
+
+function dayRowHtml(iso, d, isToday) {
+  var v = d.v, m = d.m, paidOnly = 0;
+  var h = '<div class="hrow' + (isToday ? ' today' : '') + '" data-day="' + iso + '"><div class="row" style="align-items:flex-start">' +
+    '<div class="dname">' + DAYS_SUN[rotIdx(iso) % 7] + '<small>' + shortDate(iso) + '</small></div><div class="grow">';
+  if (v.type === 'vac') {
+    h += '<span class="muted">Vacation</span>'; paidOnly = d.vac || d.statPaid;
+  } else if (v.type === 'sick') {
+    h += '<span class="muted">Sick' + (m ? ' (booked ' + hm(m) + ')' : '') + '</span>'; paidOnly = d.sick || d.statPaid;
+  } else if (v.type === 'off' || (!v.pieces.length && !v.spare)) {
+    h += '<span class="muted">Off' + (d.isStat ? ' · stat pay' : '') + '</span>'; paidOnly = d.statPaid;
+  } else {
+    var tl = v.pieces.map(function (p) { return esc(p.start || '?') + '–' + esc(p.finish || '?'); });
+    if (v.clerk) {
+      tl = ['Clerk ' + esc(v.clerk.start || '?') + '–' + esc(v.clerk.finish || '?')];
+      if (v.clerk.xStart || v.clerk.xFinish) tl.push('Extra ' + esc(v.clerk.xStart || '?') + '–' + esc(v.clerk.xFinish || '?'));
+    }
+    if (d.sc && d.sc.standby) tl.unshift('Standby ' + fromMins(d.sc.sbStart) + '–' + fromMins(d.sc.sbStart + d.sc.standby));
+    h += '<div class="times">' + (tl.length ? tl.join(', ') : 'No work picked yet') + '</div>';
+    var routes = [], buses = [];
+    v.pieces.forEach(function (p) {
+      String(p.routes || '').split(/[,\s]+/).forEach(function (r) { if (r && routes.indexOf(r) < 0) routes.push(r); });
+      if (p.bus && buses.indexOf(p.bus) < 0) buses.push(p.bus);
+    });
+    var meta = (v.spare ? 'Spare ' + esc(v.spare.slot) + (v.pieces.length ? ' · ' : '') : '') +
+      (v.clerk && v.pieces.length ? 'Paid booked ' : '') + v.pieces.map(function (p) { return esc(p.run); }).join(', ') +
+      (v.clerk && v.pieces.length ? ' (' + hm(m) + ')' : '');
+    if (routes.length) meta += ' · Rt ' + esc(routes.join(', '));
+    if (buses.length) meta += ' · Bus ' + esc(buses.join(', '));
+    h += '<div class="meta">' + meta + '</div>';
+  }
+  var tags = '';
+  if (v.type !== 'reg' && v.type !== 'off' && !(d.isStat && v.type === 'stat')) tags += '<span class="tag ' + v.type + '">' + typeName(v.type) + '</span>';
+  if (d.isStat) tags += '<span class="tag stat">Stat' + (d.stat ? ' 1.5× + 8 h' : ' 8 h') + '</span>';
+  if (d.loose) tags += '<span class="tag">Loose piece</span>';
+  if (d.clc) tags += '<span class="tag">CLC ' + hm(d.clc) + '</span>';
+  if (d.ext) tags += '<span class="tag">Extended +' + hm(d.ext) + '</span>';
+  if (v.clerk && v.type !== 'off' && v.type !== 'vac' && v.type !== 'sick') tags += '<span class="tag">Clerk +$0.50 × ' + hm(d.clerk) + '</span>';
+  if (d.spare && v.type !== 'off' && v.type !== 'vac' && v.type !== 'sick') {
+    tags += '<span class="tag spare">Spare</span>';
+    if (d.call) tags += '<span class="tag">Call ' + hm(d.call) + '</span>';
+    if (d.sc.unpaid) tags += '<span class="tag">Unpaid ' + hm(d.sc.unpaid) + '</span>';
+    if (d.topup) tags += '<span class="tag">+' + hm(d.topup) + ' to 8 h</span>';
+  }
+  if (v.type === 'reg' && d.ot) tags += '<span class="tag ot">OT ' + hm(d.ot) + '</span>';
+  if (d.sun) tags += '<span class="tag sun">Sun +' + d.sunPct + '%</span>';
+  if (v.saved) tags += '<span class="tag ed">edited</span>';
+  if (v.notes) tags += '<span class="tag">📝 note</span>';
+  if (tags) h += '<div style="margin-top:2px">' + tags + '</div>';
+  h += '</div>' + (paidOnly ? '<div class="hrs paid" title="Paid hours">' + hm(paidOnly) + '</div>'
+    : '<div class="hrs">' + ((m || d.topup || d.xot) && v.type !== 'off' ? hm(m - (d.clc || 0) + (d.topup || 0) + (d.xot || 0)) : '') +
+      (d.clc && v.type !== 'off' ? '<small style="display:block;font-size:11px;font-weight:400" class="muted">pays ' + hm(m + (d.topup || 0) + (d.xot || 0)) + '</small>' : '') + '</div>') + '</div>';
+  if (H.open === iso) h += editorHtml(iso);
+  return h + '</div>';
+}
+
+function editorHtml(iso) {
+  var v = H.draft;
+  var h = '<div class="editor">';
+  h += '<div class="row"><div class="grow"><label class="f">Day type</label><select id="eType">' +
+    TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (v.type === t[0] ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') +
+    '</select></div></div>';
+  h += '<label class="row" style="gap:6px;margin-top:8px;cursor:pointer;font-size:14px"><input type="checkbox" id="eSpare" style="width:auto"' +
+    (v.spare ? ' checked' : '') + '>General spare day</label>';
+  if (v.spare) {
+    var sp = v.spare;
+    h += '<div class="epiece"><div class="row">' +
+      '<div style="width:76px"><label class="f">Spare time</label><input id="eSlot" class="tm" maxlength="5" inputmode="numeric" value="' + esc(sp.slot) + '" autocomplete="off"></div>' +
+      '<div style="width:86px"><label class="f">Standby from</label><input id="eSb" class="tm" maxlength="5" inputmode="numeric" value="' + esc(sp.sbStart) + '" autocomplete="off"></div>' +
+      '<div style="width:86px"><label class="f">Work picked</label><input id="ePick" class="tm" maxlength="5" inputmode="numeric" value="' + esc(sp.picked) + '" placeholder="time" autocomplete="off"></div></div>' +
+      '<label class="row" style="gap:6px;margin-top:6px;cursor:pointer;font-size:14px"><input type="checkbox" id="eStby" style="width:auto"' + (sp.standby ? ' checked' : '') + '>Went in for standby</label>' +
+      '<label class="row" style="gap:6px;margin-top:4px;cursor:pointer;font-size:14px"><input type="checkbox" id="eCall" style="width:auto"' + (sp.call ? ' checked' : '') + '>Phone call (30 min)</label>' +
+      '<div class="row" style="gap:6px;margin-top:6px;font-size:14px"><span>CLC breaks in the work picked</span><select id="eSpClc" style="width:auto">' +
+        [0, 1, 2].map(function (n) { return '<option value="' + n + '"' + (clcCount(sp.clc) === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></div>' +
+      '<div class="sub" style="margin-top:4px">Add the work you picked below (bus start and finish). Leave pieces empty if you got no work.</div></div>';
+  }
+  if (!isWeekend(iso) || v.clerk) h += '<label class="row" style="gap:6px;margin-top:6px;cursor:pointer;font-size:14px"><input type="checkbox" id="eClerk" style="width:auto"' +
+    (v.clerk ? ' checked' : '') + '>Booking clerk day</label>';
+  if (v.clerk) {
+    var ck = v.clerk;
+    h += '<div class="epiece"><div class="row">' +
+      '<div style="width:76px"><label class="f">Clerk start</label><input id="eCkS" class="tm" maxlength="5" inputmode="numeric" value="' + esc(ck.start) + '" autocomplete="off"></div>' +
+      '<div style="width:76px"><label class="f">Clerk finish</label><input id="eCkF" class="tm" maxlength="5" inputmode="numeric" value="' + esc(ck.finish) + '" autocomplete="off"></div></div>' +
+      '<div class="row" style="margin-top:6px">' +
+      '<div style="width:76px"><label class="f">Extra start</label><input id="eCxS" class="tm" maxlength="5" inputmode="numeric" value="' + esc(ck.xStart) + '" placeholder="time" autocomplete="off"></div>' +
+      '<div style="width:76px"><label class="f">Extra finish</label><input id="eCxF" class="tm" maxlength="5" inputmode="numeric" value="' + esc(ck.xFinish) + '" placeholder="time" autocomplete="off"></div></div>' +
+      '<div class="sub" style="margin-top:4px">Clerk hours get the $0.50 premium. You\'re paid your booked bus work below as usual. Extra session (if you came back for a double) = OT + premium. Leave extra blank if you didn\'t. On a day off, the clerk shift is all OT + premium.</div></div>';
+  }
+  v.pieces.forEach(function (p, j) {
+    h += '<div class="epiece" data-j="' + j + '"><div class="row">' +
+      '<div style="width:84px"><label class="f">Run</label><input class="eRun" value="' + esc(p.run) + '" autocomplete="off"></div>' +
+      '<div style="width:76px"><label class="f">Start</label><input class="eStart tm" maxlength="5" inputmode="numeric" value="' + esc(p.start) + '" autocomplete="off"></div>' +
+      '<div style="width:76px"><label class="f">Finish</label><input class="eFin tm" maxlength="5" inputmode="numeric" value="' + esc(p.finish) + '" autocomplete="off"></div>' +
+      '<button class="small eDel" data-j="' + j + '" style="align-self:flex-end" title="Remove piece">×</button></div>' +
+      '<div class="row" style="margin-top:6px">' +
+      '<div style="width:84px"><label class="f">Bus</label><input class="eBus" inputmode="numeric" value="' + esc(p.bus) + '" autocomplete="off"></div>' +
+      '<div class="grow"><label class="f">Routes</label><input class="eRoutes" value="' + esc(p.routes) + '" autocomplete="off"></div></div>' +
+      '<label class="row" style="gap:6px;margin-top:6px;cursor:pointer;font-size:14px"><input type="checkbox" class="eExt" style="width:auto"' + (p.ext ? ' checked' : '') + '>Extended (extra trips: counts toward the 80, no daily OT)</label>' +
+      (p.loose ? '<label class="row" style="gap:6px;margin-top:4px;cursor:pointer;font-size:14px"><input type="checkbox" class="eLoose" style="width:auto" checked>Loose piece from your booking (daily OT after 8 h)</label>' : '') + '</div>';
+  });
+  h += '<button class="link" id="eAdd">+ add piece</button>';
+  h += '<label class="row" style="gap:6px;margin-top:6px;cursor:pointer;font-size:14px"><input type="checkbox" id="eClcAdd" style="width:auto"' +
+    (v.clcAdd ? ' checked' : '') + '>Add CLC (one extra 30 min break, e.g. when you extend)</label>';
+  h += '<label class="f" style="margin-top:6px">Notes</label><textarea id="eNotes" rows="3" placeholder="Anything that came up today">' + esc(v.notes) + '</textarea>';
+  h += '<div class="row" style="margin-top:8px"><button class="primary" id="eSave">Save</button>' +
+    (v.saved ? '<button id="eReset">Back to booking</button>' : '') + '<button id="eClose">Close</button></div>';
+  return h + '</div>';
+}
+
+function readEditor() {
+  var v = H.draft; if (!v) return;
+  var t = document.getElementById('eType'); if (t) v.type = t.value;
+  var n = document.getElementById('eNotes'); if (n) v.notes = n.value;
+  if (v.spare && document.getElementById('eSlot')) {
+    v.spare.slot = document.getElementById('eSlot').value.trim();
+    v.spare.sbStart = document.getElementById('eSb').value.trim();
+    v.spare.picked = document.getElementById('ePick').value.trim();
+    v.spare.standby = document.getElementById('eStby').checked;
+    v.spare.call = document.getElementById('eCall').checked;
+    v.spare.clc = clcCount(document.getElementById('eSpClc').value);
+  }
+  [].forEach.call(document.querySelectorAll('.epiece[data-j]'), function (el) {
+    var p = v.pieces[+el.getAttribute('data-j')]; if (!p) return;
+    p.run = el.querySelector('.eRun').value.trim();
+    p.start = el.querySelector('.eStart').value.trim();
+    p.finish = el.querySelector('.eFin').value.trim();
+    p.bus = el.querySelector('.eBus').value.trim();
+    p.routes = el.querySelector('.eRoutes').value.trim();
+    var lz = el.querySelector('.eLoose'); p.loose = !!(lz && lz.checked);
+    p.ext = el.querySelector('.eExt').checked;
+  });
+  var ca = document.getElementById('eClcAdd'); if (ca) v.clcAdd = ca.checked;
+  if (v.clerk && document.getElementById('eCkS')) {
+    v.clerk.start = document.getElementById('eCkS').value.trim();
+    v.clerk.finish = document.getElementById('eCkF').value.trim();
+    v.clerk.xStart = document.getElementById('eCxS').value.trim();
+    v.clerk.xFinish = document.getElementById('eCxF').value.trim();
+  }
+}
+
+function wireHours() {
+  [].forEach.call(document.querySelectorAll('.hrow'), function (row) {
+    row.onclick = function (e) {
+      if (e.target.closest('.editor')) return;
+      var iso = row.getAttribute('data-day');
+      if (H.open === iso) { H.open = null; H.draft = null; }
+      else { H.open = iso; H.draft = dayView(iso); }
+      drawHours();
+    };
+  });
+  if (!H.open) return;
+  var iso = H.open;
+  document.getElementById('eAdd').onclick = function () {
+    readEditor(); H.draft.pieces.push({ run: '', start: '', finish: '', bus: '', routes: '' });
+    if (H.draft.type === 'off') H.draft.type = 'reg';
+    drawHours();
+  };
+  [].forEach.call(document.querySelectorAll('.eDel'), function (b) {
+    b.onclick = function () { readEditor(); H.draft.pieces.splice(+b.getAttribute('data-j'), 1); drawHours(); };
+  });
+  document.getElementById('eClose').onclick = function () { H.open = null; H.draft = null; drawHours(); };
+  document.getElementById('eSpare').onchange = function () {
+    readEditor();
+    if (this.checked) {
+      var b = spareOf(workOn(iso).pieces);
+      H.draft.spare = defaultSpare(b ? b.spare : '');
+      if (H.draft.type === 'off') H.draft.type = 'reg';
+    } else H.draft.spare = null;
+    drawHours();
+  };
+  var eck = document.getElementById('eClerk');
+  if (eck) eck.onchange = function () {
+    readEditor();
+    H.draft.clerk = this.checked ? defaultClerk(clerkStintOn(iso) || {}) : null;
+    if (this.checked && (H.draft.type === 'off' || !H.draft.pieces.length)) H.draft.type = 'ot';   // day off: clerk shift is all OT
+    drawHours();
+  };
+  var rs = document.getElementById('eReset');
+  if (rs) rs.onclick = function () {
+    var ps = periodStartOf(iso); delete LOGS[ps].days[iso];
+    saveLogFor(ps); H.open = null; H.draft = null; drawHours();
+  };
+  document.getElementById('eSave').onclick = function () {
+    readEditor();
+    var v = H.draft, bad = null;
+    var pieces = v.pieces.filter(function (p) { return p.run || p.start || p.finish; }).map(function (p) {
+      var s = normTime(p.start), f = normTime(p.finish);
+      if (s === null || f === null) bad = p.run || 'a piece';
+      var o = { run: p.run, start: s || '', finish: f || '', bus: p.bus.replace(/^#/, ''), routes: p.routes };
+      if (p.loose) o.loose = true;
+      if (p.ext) o.ext = true;
+      return o;
+    });
+    if (bad) { toast('Check the times on ' + bad + ' (use 24 h, like 1005 or 10:05)'); return; }
+    var spare = null;
+    if (v.spare) {
+      var sl = normTime(v.spare.slot), sb = normTime(v.spare.sbStart), pk = normTime(v.spare.picked);
+      if (!sl || sb === null || pk === null) { toast('Check the spare times (spare time is needed, 24 h like 1230)'); return; }
+      spare = { slot: sl, sbStart: sb || sl, picked: pk || '', standby: !!v.spare.standby, call: !!v.spare.call, clc: clcCount(v.spare.clc) };
+    }
+    var clerk = null;
+    if (v.clerk) {
+      var c1 = normTime(v.clerk.start), c2 = normTime(v.clerk.finish), x1 = normTime(v.clerk.xStart), x2 = normTime(v.clerk.xFinish);
+      if (!c1 || !c2 || x1 === null || x2 === null || !x1 !== !x2) { toast('Check the clerk times (start and finish needed, 24 h like 1000; extra needs both or neither)'); return; }
+      clerk = { start: c1, finish: c2, xStart: x1 || '', xFinish: x2 || '' };
+    }
+    var ps = periodStartOf(iso);
+    LOGS[ps].days[iso] = { type: v.type, pieces: pieces, notes: v.notes.trim() };
+    if (spare) LOGS[ps].days[iso].spare = spare;
+    if (clerk) LOGS[ps].days[iso].clerk = clerk;
+    if (v.clcAdd) LOGS[ps].days[iso].clcAdd = true;
+    saveLogFor(ps); H.open = null; H.draft = null; drawHours();
+  };
+}
+
+document.getElementById('hPrev').onclick = function () { H.ps = addDays(H.ps, -14); H.open = null; renderHours(); };
+document.getElementById('hNext').onclick = function () { H.ps = addDays(H.ps, 14); H.open = null; renderHours(); };
+/* ---------- pay rates & overtime ---------- */
+/** "37.91" -> "37.910". null if it isn't a usable rate. */
+function cleanRate(t) {
+  var v = String(t == null ? '' : t).trim().replace(/[$,\s]/g, '');
+  if (!v) return '';
+  if (!/^\d{1,3}(\.\d{0,3})?$/.test(v) && !/^\.\d{1,3}$/.test(v)) return null;
+  var m = Math.round(parseFloat(v) * 1000);
+  return m > 0 ? fmtRateM(m) : null;
+}
+function derivedRatesHtml(reg) {
+  var c = cleanRate(reg);
+  if (!c) return '<div class="sub" style="margin-top:4px">Enter the regular rate to see the others.</div>';
+  var m = Math.round(parseFloat(c) * 1000);
+  return '<div class="sub" style="margin-top:4px">OT &amp; stat worked <b>' + fmtRateM(pctRateM(m, 150)) + '</b> · Sick <b>' + fmtRateM(pctRateM(m, 90)) +
+    '</b> · Sunday +<b>' + fmtRateM(pctRateM(m, 25)) + '</b> (or +<b>' + fmtRateM(pctRateM(m, 50)) + '</b> after 23:30)</div>';
+}
+function renderPay() {
+  var P = settings.pay;
+  var order = (P.rates || []).map(function (r, i) { return i; })
+    .sort(function (a, b) { return P.rates[a].from < P.rates[b].from ? 1 : -1; });   // newest first
+  var h = '';
+  order.forEach(function (i, n) {
+    var r = P.rates[i], always = !r.from || r.from === '2000-01-01';
+    h += '<div class="rateset" data-ri="' + i + '">' +
+      '<div class="row"><div class="grow"><label class="f">' + (n === 0 ? 'Current rate, starting' : 'Older rate, starting') + '</label>' +
+      '<input type="date" data-rf="from" value="' + (always ? '' : esc(r.from)) + '"></div>' +
+      '<div style="width:110px"><label class="f">Regular $/h</label><input data-rf="reg" inputmode="decimal" placeholder="37.910" value="' + esc(r.reg || '') + '"></div>' +
+      (P.rates.length > 1 ? '<button class="small" data-rdel="' + i + '" style="align-self:flex-end">Delete</button>' : '') + '</div>' +
+      derivedRatesHtml(r.reg) +
+      (always ? '<div class="sub" style="margin-top:4px">No start date = used for all dates before any newer rate.</div>' : '') + '</div>';
+  });
+  document.getElementById('rateSets').innerHTML = h;
+  document.getElementById('otExtra').checked = !!P.otExtra;
+  document.getElementById('otPeriodOn').checked = !!P.otPeriodOn;
+  document.getElementById('otPeriod').value = P.otPeriod || '';
+  document.getElementById('otDaily').checked = !!P.otDaily;
+  document.getElementById('otDailyAfter').value = P.otDailyAfter || '';
+  document.getElementById('payRules').value = P.rules || '';
+  wirePay();
+}
+function payChanged() { saveSettingsAll(); if (tab === 'hours') drawHours(); }
+function wirePay() {
+  [].forEach.call(document.querySelectorAll('#rateSets [data-rf]'), function (el) {
+    el.onchange = function () {
+      var r = settings.pay.rates[+el.closest('.rateset').getAttribute('data-ri')], k = el.getAttribute('data-rf');
+      if (k === 'from') { r.from = el.value || '2000-01-01'; renderPay(); payChanged(); return; }
+      var v = cleanRate(el.value);
+      if (v === null) { toast('Enter the hourly rate, like 37.910'); el.value = r[k] || ''; return; }
+      r[k] = v; renderPay(); payChanged();
+    };
+  });
+  [].forEach.call(document.querySelectorAll('#rateSets [data-rdel]'), function (b) {
+    b.onclick = function () {
+      if (!confirm('Delete this pay rate?')) return;
+      settings.pay.rates.splice(+b.getAttribute('data-rdel'), 1); renderPay(); payChanged();
+    };
+  });
+}
+document.getElementById('rateAdd').onclick = function () {
+  var latest = ratesFor('9999-12-31') || {};
+  settings.pay.rates.push({ from: serviceDate(), reg: latest.reg || '' });
+  renderPay(); payChanged();
+  toast('New rate added. Set the start date and the new amount.');
+};
+document.getElementById('otExtra').onchange = function () { settings.pay.otExtra = this.checked; payChanged(); };
+document.getElementById('otPeriodOn').onchange = function () { settings.pay.otPeriodOn = this.checked; payChanged(); };
+document.getElementById('otPeriod').onchange = function () {
+  if (this.value.trim() && durMins(this.value, null) == null) { toast('Enter hours, like 80'); this.value = settings.pay.otPeriod; return; }
+  settings.pay.otPeriod = this.value.trim() || '80'; payChanged();
+};
+document.getElementById('otDaily').onchange = function () { settings.pay.otDaily = this.checked; payChanged(); };
+document.getElementById('otDailyAfter').onchange = function () {
+  if (this.value.trim() && durMins(this.value, null) == null) { toast('Enter hours, like 8'); this.value = settings.pay.otDailyAfter; return; }
+  settings.pay.otDailyAfter = this.value.trim() || '8'; payChanged();
+};
+document.getElementById('payRules').onchange = function () { settings.pay.rules = this.value; saveSettingsAll(); };
+
+/* ---------- time boxes: type 1010, get 10:10 ---------- */
+document.addEventListener('input', function (e) {
+  var el = e.target;
+  if (!el.classList || !el.classList.contains('tm')) return;
+  if (e.inputType && e.inputType.indexOf('delete') === 0) return;   // let backspace work normally
+  var d = el.value.replace(/\D/g, '').slice(0, 4);
+  el.value = d.length > 2 ? d.slice(0, -2) + ':' + d.slice(-2) : d;
+});
+document.addEventListener('focusout', function (e) {
+  var el = e.target;
+  if (!el.classList || !el.classList.contains('tm')) return;
+  var n = normTime(el.value);
+  if (n) el.value = n;
+});
+
+/* ---------- My work ---------- */
+function pieceHtml(p, delAttr) {
+  if (p.spare) return '<span class="piece"><b>Spare ' + esc(p.spare) + '</b><button ' + delAttr + ' title="Remove">×</button></span>';
+  var t = p.relief ? ' · ' + esc(p.relief) + (p.finish ? '–' + esc(p.finish) : '') : (p.finish ? ' · to ' + esc(p.finish) : '');
+  var n = clcCount(p.clc);
+  return '<span class="piece">' + esc(p.run) + t + (p.loose ? ' <b title="Loose piece">· loose</b>' : '') +
+    ' <a href="javascript:void 0" class="clcChip" ' + delAttr.replace('data-del', 'data-clc') + ' title="Tap to change CLC breaks" style="color:var(--accent,#06c)">· CLC ' + n + '</a>' +
+    '<button ' + delAttr + ' title="Remove">×</button></span>';
+}
+function adderHtml(kind, idx) {
+  var h = '<div class="seg aKind" style="margin-top:6px"><button class="on" data-kind="run">Run</button><button data-kind="spare">General spare</button></div>' +
+    '<div class="adder" style="flex-wrap:wrap">' +
+    '<input placeholder="Run" data-k="' + kind + '" data-i="' + idx + '" class="aRun" style="flex:1 1 80px;min-width:80px">' +
+    '<input placeholder="Start" style="width:76px" inputmode="numeric" maxlength="5" class="aRel tm">' +
+    '<input placeholder="Finish" style="width:76px" inputmode="numeric" maxlength="5" class="aFin tm"></div>' +
+    '<div class="row aLooseRow" style="gap:6px;margin-top:6px;font-size:14px"><span>CLC breaks</span><select class="aClc" style="width:auto">' +
+    '<option value="0">0</option><option value="1">1</option><option value="2" selected>2</option></select>' +
+    '<span class="sub">(booking sheet: "9:47 pays 10:47" = 2)</span></div>';
+  if (kind === 'h') {
+    var hd = +String(idx).split('_')[1];
+    h += '<label class="row aLooseRow" style="gap:6px;margin-top:6px;cursor:pointer;font-size:14px"><input type="checkbox" class="aLoose" style="width:auto">' +
+      'Loose piece (biddable tripper)</label>';
+    h += '<div class="rep"><div class="sub">Also on (tap days this week):</div><div class="row" style="gap:4px;margin-top:4px">';
+    for (var hdd = 0; hdd < 7; hdd++) h += '<button class="dchip' + (hdd === hd ? ' on' : '') + '" data-d="' + hdd + '">' + DAYS_SUN[hdd].slice(0, 2) + '</button>';
+    h += '</div><div class="row" style="gap:4px;margin-top:6px"><button class="link qsel" data-q="hwk">+ Mon–Fri</button></div></div>';
+  }
+  if (kind === 'w') {
+    h += '<label class="row aLooseRow" style="gap:6px;margin-top:6px;cursor:pointer;font-size:14px"><input type="checkbox" class="aLoose" style="width:auto">' +
+      'Loose piece (biddable tripper)</label>';
+    h += '<div class="rep"><div class="sub">Repeat on (tap days):</div>';
+    [0, 1].forEach(function (w) {
+      h += '<div class="row" style="gap:4px;margin-top:4px"><span class="sub" style="width:44px">Wk ' + (w + 1) + '</span>';
+      for (var d = 0; d < 7; d++) {
+        var i = w * 7 + d;
+        h += '<button class="dchip' + (i === idx ? ' on' : '') + '" data-d="' + i + '">' + DAYS_SUN[d].slice(0, 2) + '</button>';
+      }
+      h += '</div>';
+    });
+    h += '<div class="row" style="gap:4px;margin-top:6px"><button class="link qsel" data-q="both">+ same day both weeks</button>' +
+      '<button class="link qsel" data-q="wk">+ Mon–Fri this week</button><button class="link qsel" data-q="all">+ Mon–Fri both weeks</button></div></div>';
+  }
+  return h + '<div class="row" style="margin-top:6px"><button class="small primary aBtn">Add</button></div>';
+}
+function renderWork() {
+  document.getElementById('wStart').value = settings.bookingStart || '';
+  document.getElementById('wEnd').value = settings.bookingEnd || '';
+  var h = '', thisWeek = weekNo(serviceDate());
+  document.getElementById('wHoliday').checked = !!settings.holiday;
+  document.getElementById('rotTitle').textContent = settings.holiday ? 'Holiday spare: work for each week' : '2-week rotation';
+  document.getElementById('rotCopy').style.display = settings.holiday ? 'none' : '';
+  if (settings.holiday) {
+    var wks = bookingWeeks(), today = serviceDate();
+    if (!wks.length) h = '<div class="sub" style="margin-top:8px">Set your booking <b>Start</b> date above to list the weeks.</div>';
+    else if (!settings.bookingEnd) h = '<div class="sub" style="margin-top:8px">No booking Finish date yet, so 13 weeks are shown. Set Finish to show the exact weeks.</div>';
+    wks.forEach(function (sun, n) {
+      var cur = sundayOf(today) === sun;
+      h += '<div class="wk" style="margin-top:' + (n ? 14 : 6) + 'px">Week ' + (n + 1) + ' · Sun ' + shortDate(sun) + ' – Sat ' + shortDate(addDays(sun, 6)) + (cur ? ' · this week' : '') + '</div>';
+      for (var d = 0; d < 7; d++) {
+        var ps = hGet(sun, d), key = sun + '_' + d;
+        h += '<div class="dayrow"><div class="row"><div class="dname">' + DAYS_SUN[d] + '</div><div class="grow">' +
+          (ps.length ? ps.map(function (p, j) { return pieceHtml(p, 'data-del="h|' + sun + '|' + d + '|' + j + '"'); }).join('') : '<span class="muted">Off</span>') +
+          ' <button class="link" data-open="h' + key + '">+ add</button></div></div>' +
+          '<div class="hidden" id="add-h' + key + '">' + adderHtml('h', key) + '</div></div>';
+      }
+    });
+  } else [0, 1].forEach(function (w) {
+    h += '<div class="wk" style="margin-top:' + (w ? 14 : 6) + 'px">Week ' + (w + 1) + (thisWeek === w + 1 ? ' · this week' : '') + '</div>';
+    for (var d = 0; d < 7; d++) {
+      var i = w * 7 + d, ps = settings.week[i] || [];
+      h += '<div class="dayrow"><div class="row"><div class="dname">' + DAYS_SUN[d] + '</div><div class="grow">' +
+        (ps.length ? ps.map(function (p, j) { return pieceHtml(p, 'data-del="w|' + i + '|' + j + '"'); }).join('') : '<span class="muted">Off</span>') +
+        ' <button class="link" data-open="w' + i + '">+ add</button></div></div>' +
+        '<div class="hidden" id="add-w' + i + '">' + adderHtml('w', i) + '</div></div>';
+    }
+  });
+  document.getElementById('weekRows').innerHTML = h;
+
+  settings.special.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  var s = '';
+  settings.special.forEach(function (sp, i) {
+    s += '<div class="dayrow"><div class="row"><div class="grow"><b>' + prettyDate(sp.date) + '</b> <span class="sub">Week ' + weekNo(sp.date) + '</span></div>' +
+      '<label class="row" style="gap:4px;cursor:pointer;font-size:14px"><input type="checkbox" data-sstat="' + i + '" style="width:auto"' + (sp.stat ? ' checked' : '') + '>Stat</label>' +
+      '<button class="small" data-sdel="' + i + '">Delete</button></div>' +
+      '<div class="seg" style="margin-top:6px">' + [['off', 'Off'], ['regular', 'Regular'], ['custom', 'Custom']].map(function (m) {
+        return '<button data-smode="' + i + '|' + m[0] + '"' + (sp.mode === m[0] ? ' class="on"' : '') + '>' + m[1] + '</button>';
+      }).join('') + '</div>';
+    if (sp.mode === 'regular') {
+      var reg = settings.week[rotIdx(sp.date)] || [];
+      s += '<div class="sub" style="margin-top:4px">Your usual ' + DAYS_SUN[rotIdx(sp.date) % 7] + ' Week ' + weekNo(sp.date) + ' work: ' +
+        (reg.length ? reg.map(function (p) { return p.spare ? 'Spare ' + esc(p.spare) : esc(p.run) + (p.relief ? ' ' + esc(p.relief) : ''); }).join(', ') : 'none (that day is off)') + '</div>';
+    } else if (sp.mode === 'custom') {
+      s += '<div style="margin-top:4px">' + (sp.pieces.length ? sp.pieces.map(function (p, j) { return pieceHtml(p, 'data-del="s|' + i + '|' + j + '"'); }).join('') : '<span class="muted">No runs yet</span>') +
+        ' <button class="link" data-open="s' + i + '">+ add</button></div><div class="hidden" id="add-s' + i + '">' + adderHtml('s', i) + '</div>';
+    }
+    s += '</div>';
+  });
+  document.getElementById('specialRows').innerHTML = s || '<div class="dayrow muted">None yet.</div>';
+  document.getElementById('clerkRows').innerHTML = (settings.clerk || []).map(function (c, i) {
+    return '<div class="dayrow"><div class="row"><div class="grow"><b>' + prettyDate(c.from) + ' – ' + (c.to ? prettyDate(c.to) : 'open') + '</b>' +
+      '<div class="sub">Clerk ' + esc(c.start) + '–' + esc(c.finish) + '</div></div><button class="small" data-cdel="' + i + '">Delete</button></div></div>';
+  }).join('') || '<div class="dayrow muted">None yet.</div>';
+  wireWork();
+}
+function workChanged() { saveSettingsAll(); renderWork(); renderHeader(); H.planKey = null; }
+function wireWork() {
+  var root = document.getElementById('tab-work');
+  [].forEach.call(root.querySelectorAll('[data-open]'), function (b) {
+    b.onclick = function () { var el = document.getElementById('add-' + b.getAttribute('data-open')); el.classList.toggle('hidden'); var i = el.querySelector('input'); if (i) i.focus(); };
+  });
+  [].forEach.call(root.querySelectorAll('.aKind button'), function (b) {
+    b.onclick = function () {
+      var wrap = b.closest('[id^="add-"]'), sp = b.getAttribute('data-kind') === 'spare';
+      wrap.classList.toggle('spmode', sp);
+      [].forEach.call(wrap.querySelectorAll('.aKind button'), function (x) { x.classList.toggle('on', x === b); });
+      var rl = wrap.querySelector('.aRel'); rl.placeholder = sp ? 'Spare time' : 'Start'; rl.style.width = sp ? '110px' : '76px'; rl.focus();
+    };
+  });
+  [].forEach.call(root.querySelectorAll('.dchip'), function (b) {
+    b.onclick = function () { b.classList.toggle('on'); };
+  });
+  [].forEach.call(root.querySelectorAll('.qsel'), function (b) {
+    b.onclick = function () {
+      var rep = b.closest('.rep'), base = +rep.parentNode.querySelector('.aRun').getAttribute('data-i'), q = b.getAttribute('data-q');
+      var w = base < 7 ? 0 : 7, pick = [];
+      if (q === 'hwk') pick = [1, 2, 3, 4, 5];
+      else if (q === 'both') pick = [base % 7, base % 7 + 7];
+      else if (q === 'wk') pick = [w + 1, w + 2, w + 3, w + 4, w + 5];
+      else pick = [1, 2, 3, 4, 5, 8, 9, 10, 11, 12];
+      pick.forEach(function (i) { var c = rep.querySelector('[data-d="' + i + '"]'); if (c) c.classList.add('on'); });
+    };
+  });
+  [].forEach.call(root.querySelectorAll('.aBtn'), function (b) {
+    b.onclick = function () {
+      var wrap = b.closest('[id^="add-"]'), ri = wrap.querySelector('.aRun'), rl = wrap.querySelector('.aRel'), rf = wrap.querySelector('.aFin');
+      var spMode = wrap.classList.contains('spmode');
+      var run = ri.value.trim(); if (!spMode && !run) { toast('Type a run number first'); return; }
+      var rel = normTime(rl.value), fin = normTime(rf.value);
+      if (rel === null || (!spMode && fin === null)) { toast('Use 24 h times, like 1010'); return; }
+      if (spMode && !rel) { toast('Type your spare time, like 1230'); return; }
+      var piece = spMode ? { spare: rel } : { run: run, relief: rel }, k = ri.getAttribute('data-k'), i = k === 'h' ? 0 : +ri.getAttribute('data-i');
+      if (!spMode && fin) piece.finish = fin;
+      var lz = wrap.querySelector('.aLoose');
+      if (!spMode && lz && lz.checked) piece.loose = true;
+      var ac = wrap.querySelector('.aClc');
+      if (!spMode && ac) piece.clc = clcCount(ac.value);
+      var noSpare = function (list) { return spMode ? list.filter(function (p) { return !p.spare; }) : list; };   // one spare entry per day
+      if (k === 'w') {
+        var days = [].map.call(wrap.querySelectorAll('.dchip.on'), function (c) { return +c.getAttribute('data-d'); });
+        if (!days.length) { toast('Pick at least one day'); return; }
+        days.forEach(function (d) { settings.week[d] = noSpare(settings.week[d]); settings.week[d].push(clone(piece)); });
+        toast('Added to ' + days.length + ' day' + (days.length > 1 ? 's' : ''));
+      } else if (k === 'h') {
+        var hsun = String(ri.getAttribute('data-i')).split('_')[0];
+        var hdays = [].map.call(wrap.querySelectorAll('.dchip.on'), function (c) { return +c.getAttribute('data-d'); });
+        if (!hdays.length) { toast('Pick at least one day'); return; }
+        hdays.forEach(function (d) { var l = noSpare(hGet(hsun, d)); l.push(clone(piece)); hSet(hsun, d, l); });
+        toast('Added to ' + hdays.length + ' day' + (hdays.length > 1 ? 's' : ''));
+      } else { settings.special[i].pieces = noSpare(settings.special[i].pieces); settings.special[i].pieces.push(piece); }
+      workChanged();
+    };
+  });
+  [].forEach.call(root.querySelectorAll('[data-clc]'), function (b) {
+    b.onclick = function () {   // tap cycles 0 -> 1 -> 2 -> 0, on that day only
+      var p = b.getAttribute('data-clc').split('|');
+      if (p[0] === 'h') {
+        var hl = hGet(p[1], +p[2]); hl[+p[3]].clc = (clcCount(hl[+p[3]].clc) + 1) % 3; hSet(p[1], +p[2], hl);
+        return workChanged();
+      }
+      var pc = p[0] === 'w' ? settings.week[+p[1]][+p[2]] : settings.special[+p[1]].pieces[+p[2]];
+      pc.clc = (clcCount(pc.clc) + 1) % 3;
+      workChanged();
+    };
+  });
+  [].forEach.call(root.querySelectorAll('[data-del]'), function (b) {
+    b.onclick = function () {
+      var p = b.getAttribute('data-del').split('|');
+      if (p[0] === 'h') { var hl = hGet(p[1], +p[2]); hl.splice(+p[3], 1); hSet(p[1], +p[2], hl); }
+      else if (p[0] === 'w') settings.week[+p[1]].splice(+p[2], 1); else settings.special[+p[1]].pieces.splice(+p[2], 1);
+      workChanged();
+    };
+  });
+  [].forEach.call(root.querySelectorAll('[data-smode]'), function (b) {
+    b.onclick = function () { var p = b.getAttribute('data-smode').split('|'); settings.special[+p[0]].mode = p[1]; workChanged(); };
+  });
+  [].forEach.call(root.querySelectorAll('[data-sstat]'), function (c) {
+    c.onchange = function () { settings.special[+c.getAttribute('data-sstat')].stat = c.checked; workChanged(); };
+  });
+  [].forEach.call(root.querySelectorAll('[data-sdel]'), function (b) {
+    b.onclick = function () { settings.special.splice(+b.getAttribute('data-sdel'), 1); workChanged(); };
+  });
+  [].forEach.call(root.querySelectorAll('[data-cdel]'), function (b) {
+    b.onclick = function () { settings.clerk.splice(+b.getAttribute('data-cdel'), 1); workChanged(); };
+  });
+}
+function copyWeek(from, to) {
+  if (!confirm('Replace everything in Week ' + (to + 1) + ' with a copy of Week ' + (from + 1) + '?')) return;
+  for (var d = 0; d < 7; d++) settings.week[to * 7 + d] = clone(settings.week[from * 7 + d] || []);
+  workChanged(); toast('Week ' + (from + 1) + ' copied to Week ' + (to + 1));
+}
+document.getElementById('copy12').onclick = function () { copyWeek(0, 1); };
+document.getElementById('copy21').onclick = function () { copyWeek(1, 0); };
+document.getElementById('wStart').onchange = function () { settings.bookingStart = this.value; workChanged(); };
+document.getElementById('wHoliday').onchange = function () {
+  settings.holiday = this.checked;
+  workChanged();
+  toast(this.checked ? 'Holiday spare: add your work for each week' : 'Back to your 2-week rotation');
+};
+document.getElementById('wEnd').onchange = function () { settings.bookingEnd = this.value; workChanged(); };
+document.getElementById('sAdd').onclick = function () {
+  var d = document.getElementById('sDate').value;
+  if (!d) { toast('Pick a date first'); return; }
+  if (settings.special.some(function (s) { return s.date === d; })) { toast('That date is already listed'); return; }
+  settings.special.push({ date: d, mode: 'off', stat: false, pieces: [] });
+  workChanged();
+};
+document.getElementById('cAdd').onclick = function () {
+  var f = document.getElementById('cFrom').value, t = document.getElementById('cTo').value;
+  var a = normTime(document.getElementById('cStart').value), b = normTime(document.getElementById('cFin').value);
+  if (!f) { toast('Pick the first clerk day'); return; }
+  if (t && t < f) { toast('"To" is before "From"'); return; }
+  if (!a || !b) { toast('Type your clerk hours, 24 h like 1000 and 1430'); return; }
+  settings.clerk = settings.clerk || [];
+  settings.clerk.push({ from: f, to: t || '', start: a, finish: b });
+  settings.clerk.sort(function (x, y) { return x.from < y.from ? -1 : 1; });
+  workChanged(); toast('Clerk dates added');
+};
+
+/* ================= live map ================= */
+var M = { map: null, target: null, timer: null, marker: null, trail: null, pts: [], follow: true, extra: null, busy: false, lastId: null };
+var LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+var LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+function ensureLeaflet(cb) {
+  if (window.L) return cb();
+  var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = LEAFLET_CSS; document.head.appendChild(css);
+  var s = document.createElement('script'); s.src = LEAFLET_JS; s.onload = cb;
+  s.onerror = function () { document.getElementById('mapInfo').innerHTML = '<span class="err">Couldn\'t load the map library. Check your connection.</span>'; };
+  document.head.appendChild(s);
+}
+function openRunMap(q) { openMap({ type: 'run', run: q.run, relief: q.relief }); }
+function openBusMap(id) { openMap({ type: 'bus', id: String(id) }); }
+function openMap(target) {
+  M.target = target; M.pts = []; M.follow = true; M.lastId = null;
+  document.getElementById('mapFollow').textContent = 'Following';
+  document.getElementById('mapTitle').textContent = target.type === 'run' ? 'Run ' + target.run : 'Bus ' + target.id;
+  document.getElementById('mapInfo').textContent = 'Loading…';
+  document.getElementById('mapView').classList.remove('hidden');
+  ensureLeaflet(function () {
+    if (!M.map) {
+      M.map = L.map('map', { zoomControl: true, attributionControl: true }).setView([45.4215, -75.6972], 12);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(M.map);
+      M.map.on('dragstart', function () { M.follow = false; document.getElementById('mapFollow').textContent = 'Follow bus'; });
+    }
+    setTimeout(function () { M.map.invalidateSize(); }, 50);
+    clearMapLayers();
+    mapTick();
+    clearInterval(M.timer);
+    M.timer = setInterval(function () { if (document.visibilityState === 'visible') mapTick(); }, 15000);
+  });
+}
+function clearMapLayers() {
+  if (M.marker) { M.map.removeLayer(M.marker); M.marker = null; }
+  if (M.trail) { M.map.removeLayer(M.trail); M.trail = null; }
+  if (M.extra) { M.map.removeLayer(M.extra); M.extra = null; }
+}
+function closeMap() {
+  clearInterval(M.timer); M.timer = null; M.target = null;
+  document.getElementById('mapView').classList.add('hidden');
+}
+document.getElementById('mapClose').onclick = closeMap;
+document.getElementById('mapFollow').onclick = function () {
+  M.follow = true; this.textContent = 'Following';
+  if (M.marker) M.map.panTo(M.marker.getLatLng());
+};
+
+function busIcon(id, bearing) {
+  var arrow = bearing == null ? '' : '<div class="arrow" style="transform:rotate(' + bearing + 'deg)"></div>';
+  return L.divIcon({ className: 'busIcon', iconSize: [44, 44], iconAnchor: [22, 22],
+    html: '<div class="busDot">' + arrow + '<div class="num">' + esc(String(id).slice(-4)) + '</div></div>' });
+}
+function animateTo(marker, lat, lon) {
+  var from = marker.getLatLng(), t0 = performance.now(), dur = 1500;
+  function step(t) {
+    var k = Math.min(1, (t - t0) / dur);
+    marker.setLatLng([from.lat + (lat - from.lat) * k, from.lng + (lon - from.lng) * k]);
+    if (k < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+function drawBus(b) {
+  var ll = [b.lat, b.lon];
+  if (M.lastId !== null && M.lastId !== b.id) { clearMapLayers(); M.pts = []; }   // different bus took the run
+  M.lastId = b.id;
+  var last = M.pts[M.pts.length - 1];
+  if (!last || last[0] !== ll[0] || last[1] !== ll[1]) M.pts.push(ll);
+  if (!M.marker) {
+    M.marker = L.marker(ll, { icon: busIcon(b.id, b.bearing), zIndexOffset: 1000 }).addTo(M.map);
+    M.map.setView(ll, 15);
+  } else {
+    M.marker.setIcon(busIcon(b.id, b.bearing));
+    animateTo(M.marker, ll[0], ll[1]);
+    if (M.follow) M.map.panTo(ll, { animate: true, duration: 1.2 });
+  }
+  if (!M.trail) M.trail = L.polyline(M.pts, { color: '#d62d20', weight: 4, opacity: .55 }).addTo(M.map);
+  else M.trail.setLatLngs(M.pts);
+  document.getElementById('mapG').href = 'https://www.google.com/maps/search/?api=1&query=' + b.lat + ',' + b.lon;
+}
+function drawExtras(r) {
+  if (M.extra) { M.map.removeLayer(M.extra); M.extra = null; }
+  if (!STOPS || !r) return;
+  M.extra = L.layerGroup().addTo(M.map);
+  (r.curStops || []).forEach(function (id) {
+    var s = stopById(id); if (!s) return;
+    L.marker([s.lat, s.lon], { icon: L.divIcon({ className: '', html: '<div class="stopDot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }) })
+      .bindTooltip(s.name).addTo(M.extra);
+  });
+  if (r.relief) {
+    var rs = stopById(r.relief.stopId);
+    if (rs) L.marker([rs.lat, rs.lon], { icon: L.divIcon({ className: '', html: '<div class="reliefPin">Relief ' + r.relief.sched + '</div>', iconSize: null, iconAnchor: [30, 12] }), zIndexOffset: 500 })
+      .bindTooltip(rs.name).addTo(M.extra);
+  }
+}
+function mapTick() {
+  if (!M.target || M.busy) return;
+  M.busy = true;
+  var tg = M.target;
+  var done = function () { M.busy = false; };
+  if (tg.type === 'run') {
+    call('getRuns', [[{ run: tg.run, relief: tg.relief }]], function (res) {
+      done(); if (M.target !== tg) return;
+      var r = res.results[0], info = document.getElementById('mapInfo');
+      if (r.error) { info.innerHTML = '<span class="err">' + esc(r.error) + '</span>'; return; }
+      drawExtras(r);
+      if (r.bus) {
+        drawBus(r.bus);
+        document.getElementById('mapTitle').textContent = 'Run ' + r.input + ' · Bus ' + r.bus.id;
+      } else if (r.relief && !M.marker) {
+        var rs = stopById(r.relief.stopId); if (rs) M.map.setView([rs.lat, rs.lon], 15);
+      }
+      info.innerHTML = mapInfoRun(r, res.now);
+    }, function (e) { done(); document.getElementById('mapInfo').innerHTML = '<span class="err">' + esc(e.message || e) + '</span>'; });
+  } else {
+    call('getBuses', [[tg.id]], function (res) {
+      done(); if (M.target !== tg) return;
+      var r = res.results[0], info = document.getElementById('mapInfo');
+      if (!r.found) { info.innerHTML = '<b>Bus ' + esc(r.id) + '</b> isn\'t reporting GPS right now.' + (r.error ? ' ' + esc(r.error) : ''); return; }
+      drawBus(r.bus);
+      drawExtras(r.inService ? r.runResult : null);
+      var h = '<div><b>Bus ' + esc(r.id) + '</b> · ' + (r.inService ? 'run ' + esc(r.run) + ' ' + lateText(r.runResult.delay)
+        : (r.run ? 'between trips (run ' + esc(r.run) + ')' : 'not in service')) + '</div>';
+      if (r.inService && r.runResult.next) h += '<div class="muted">Next: ' + esc(r.runResult.next.name) + ' · now ' + r.runResult.next.pred + '</div>';
+      h += '<div class="muted" style="font-size:14px">' + esc(nearText(r.bus)) + ' · ' + speedText(r.bus.speed) + ' · GPS ' + ageText(r.bus.age) + '</div>';
+      info.innerHTML = h;
+    }, function (e) { done(); document.getElementById('mapInfo').innerHTML = '<span class="err">' + esc(e.message || e) + '</span>'; });
+  }
+}
+function mapInfoRun(r, now) {
+  var h = '';
+  if (r.bus) {
+    var cur = r.curTrip >= 0 ? r.trips[r.curTrip] : null;
+    h += '<div><b>' + (r.bus.likely ? 'Likely bus ' : 'Bus ') + esc(r.bus.id) + '</b> · ' + (r.status === 'layover' ? 'on layover until ' + r.layover.until : cur ? 'Route ' + esc(cur.route) + ' → ' + esc(cur.head) + ' ' + lateText(r.delay) : 'between trips') + '</div>';
+    if (r.next) h += '<div class="muted">Next: ' + esc(r.next.name) + ' · now ' + r.next.pred + '</div>';
+    h += '<div class="muted" style="font-size:14px">' + esc(nearText(r.bus)) + ' · ' + speedText(r.bus.speed) + ' · GPS ' + ageText(r.bus.age) + '</div>';
+  } else {
+    h += '<div><b>' + ({ not_out: 'Not out yet', done: 'Finished for today', no_gps: 'No GPS right now', layover: 'On layover' }[r.status] || '') + '</b></div>';
+    if (r.status === 'not_out') h += '<div class="muted">First trip ' + r.trips[0].start + ' from ' + esc(r.trips[0].from) + '. The map picks the bus up automatically.</div>';
+  }
+  if (r.cancelled && r.cancelled.length) h += '<div class="bad" style="font-size:14px">⚠ ' + r.cancelled.length + ' cancelled trip' + (r.cancelled.length > 1 ? 's' : '') + ' on this run</div>';
+  if (r.relief) {
+    var when = r.relief.predEpoch || r.relief.schedEpoch;
+    h += '<div style="margin-top:4px">Relief <b>' + r.relief.sched + '</b> at ' + esc(r.relief.name) +
+      (when - now > -600 ? ' · <b>' + fmtDur(when - now) + '</b>' : '') + (r.relief.pred ? ' (pred ' + r.relief.pred + ')' : '') + '</div>';
+  }
+  return h;
+}
+
+/* ================= refresh loop ================= */
+function refresh() {
+  if (tab === 'today') refreshToday();
+  else if (tab === 'run') refreshRun();
+  else if (tab === 'bus') refreshBus();
+}
+document.getElementById('refreshBtn').onclick = refresh;
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { refresh(); if (M.target) mapTick(); } });
+setInterval(function () {
+  if (document.visibilityState !== 'visible' || M.target) return;
+  if (tab === 'today' || (tab === 'run' && runQ && runQ.date === serviceDate()) || tab === 'bus') refresh();
+}, 30000);
+
+/* ================= start ================= */
+document.getElementById('connBtn').onclick = function () { showSetup(); };
+setupFromHash();
+if (!API) showSetup();
+document.getElementById('rDate').value = serviceDate();
+renderRecent('rRecent', 'recentRuns', pickRecentRun);
+renderRecent('bRecent', 'recentBuses', function (x) { document.getElementById('bNum').value = x.id; doBusLookup(); });
+renderPay();
+renderHeader();
+refreshToday();
+loadStops(function () { if (tab !== 'work' && tab !== 'hours') refresh(); });
+call('getSettings', [], function (s) {
+  if (s && (s.v === 2 || s.v === 3)) {
+    var was = s.v;
+    settings = migrateSettings(s);
+    if (was !== 3) saveSettingsAll();   // store the upgraded format
+    store('settings2', settings); renderHeader(); renderPay();
+    if (tab === 'today') refreshToday(); if (tab === 'work') renderWork(); if (tab === 'hours') { H.planKey = null; renderHours(); }
+  }
+  else saveSettingsAll();   // first run: put this phone's settings in your Google account
+}, function () {});
+</script>
+</body>
+</html>
