@@ -512,7 +512,7 @@ function toast(msg) {
   var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2200);
 }
-/* v4.0: talks to your Apps Script with fetch() (page is hosted on GitHub Pages, so no Apps Script banner). */
+/* v4.1: shows the assigned bus + location on layover / not out. v4.0: talks to your Apps Script with fetch() (page is hosted on GitHub Pages, so no Apps Script banner). */
 var API = load('api', null);   // {u: '/exec URL', k: 'app key'}
 function apiPost(fn, args, api) {
   api = api || API;
@@ -611,6 +611,15 @@ function nearText(b) {
 }
 
 /* ================= run card ================= */
+/* v4.1: bus OC Transpo has assigned to an upcoming trip on this run (shown when the live feed doesn't tie the bus to the run). */
+function assignedHead(r, what) {
+  var a = r.assigned, b = r.bus;
+  var h = '<div class="bus">' + esc(a.id) + ' <small>bus · ' + esc(what) + '</small></div>';
+  h += '<div class="line muted" style="font-size:14px">Assigned by OC Transpo to trip ' + (a.trip + 1) + ' (' + esc(r.trips[a.trip].start) + ').';
+  if (b && b.otherTrip) h += ' Right now it\'s still on another run' + (b.otherRoute ? ' (Route ' + esc(b.otherRoute) + ')' : '') + '.';
+  if (!b) h += ' No GPS from this bus right now.';
+  return h + '</div>';
+}
 function runCard(r, now, opts) {
   opts = opts || {};
   var title = esc(r.input) + (r.reliefInput ? ' <span class="muted" style="font-weight:500">from ' + esc(r.reliefInput) + '</span>' : '');
@@ -645,7 +654,9 @@ function runCard(r, now, opts) {
       : 'No more trips. Likely heading in.') + '</div>';
   } else if (r.status === 'layover') {
     var lo = r.layover;
-    if (r.likely) {
+    if (r.assigned) {
+      h += assignedHead(r, 'on layover');
+    } else if (r.likely) {
       h += '<div class="bus">' + esc(r.likely.id) + ' <small>likely bus · on layover</small></div>';
       h += '<div class="line muted" style="font-size:14px">Best guess: the closest out-of-service bus to ' + esc(lo.nextFrom) +
         ' (' + r.likely.m + ' m). Confirmed once trip ' + (lo.nextTrip + 1) + ' starts.</div>';
@@ -655,12 +666,15 @@ function runCard(r, now, opts) {
     }
     h += '<div class="line">Until <b>' + lo.until + '</b> · next: Route ' + esc(lo.nextRoute) + ' from ' + esc(lo.nextFrom) + '</div>';
   } else if (r.status === 'not_out') {
-    h += '<div class="bus mid">Not out yet</div>';
+    if (r.assigned) h += assignedHead(r, 'not out yet');
+    else h += '<div class="bus mid">Not out yet</div>';
     h += '<div class="line muted">First trip ' + t[0].start + ': Route ' + esc(t[0].route) + ' from ' + esc(t[0].from) +
       '. The bus number shows once it starts its first trip.</div>';
   } else if (r.status === 'done') {
     h += '<div class="bus mid">Finished for today</div>';
     h += '<div class="line muted">Last trip ended ' + t[t.length - 1].end + '.</div>';
+  } else if (r.assigned) {
+    h += assignedHead(r, 'not matched to a trip right now');
   } else {
     h += '<div class="bus mid">No GPS</div>';
     h += '<div class="line muted">This run should be out, but its bus isn\'t reporting right now. Try again in a minute.</div>';

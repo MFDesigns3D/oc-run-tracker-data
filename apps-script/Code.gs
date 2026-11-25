@@ -44,7 +44,7 @@ var API_FUNCS = {
   getSettings: getSettings, saveSettings: saveSettings,
   getLog: getLog, saveLog: saveLog, planDays: planDays,
   getAlerts: getAlerts, saveDetourPauses: saveDetourPauses,
-  ping: function () { return { ok: true, version: '4.0' }; }
+  ping: function () { return { ok: true, version: '4.1' }; }
 };
 
 function doGet(e) {
@@ -345,7 +345,9 @@ function tripUpdates_(keySet) {
       var ev = (u.Arrival && u.Arrival.HasTime) ? u.Arrival : (u.Departure && u.Departure.HasTime ? u.Departure : null);
       if (ev && u.HasStopId) arr.push([u.StopId, ev.Time, u.ScheduleRelationship]);
     });
-    out[k] = { sd: tu.Trip.StartDate, rel: tu.Trip.ScheduleRelationship, u: arr };
+    var tv = tu.Vehicle;
+    out[k] = { sd: tu.Trip.StartDate, rel: tu.Trip.ScheduleRelationship, u: arr,
+      vid: tv ? String(tv.Id || tv.Label || '') : '' };  // bus OC Transpo has assigned to this trip (if the feed says)
   });
   return out;
 }
@@ -810,6 +812,27 @@ function buildResult_(q, sl, vp, tu, D, feedErr) {
   }
   res.curTrip = busTrip;
 
+  // --- no live match? Ask the trip updates which bus is assigned to the next trips on this run ---
+  if (!bus && tu) {
+    for (var ai = 0; ai < trips.length; ai++) {
+      if (res.trips[ai].endEpoch < D.nowSec - 300) continue;
+      var ax = tu[trips[ai].k];
+      if (!ax || !ax.vid) continue;
+      res.assigned = { id: ax.vid, trip: ai };
+      if (vp) {
+        for (var av = 0; av < vp.v.length; av++) {
+          var cv = vp.v[av];
+          if (String(cv.id) !== ax.vid) continue;
+          res.bus = { id: cv.id, lat: cv.la, lon: cv.lo, bearing: cv.b, speed: cv.sp,
+            age: cv.ts ? Math.max(0, D.nowSec - cv.ts) : null, onTrip: false, assigned: true,
+            otherTrip: !!cv.t && !matchKey_(cv.t, keySet), otherRoute: cv.r || '' };
+          break;
+        }
+      }
+      break;
+    }
+  }
+
   // --- delay + next timepoint on the current trip ---
   if (busTrip >= 0 && tu[trips[busTrip].k]) {
     var t = trips[busTrip], u = tu[trips[busTrip].k].u;
@@ -871,8 +894,9 @@ function buildResult_(q, sl, vp, tu, D, feedErr) {
       res.status = 'layover';
       res.layover = { from: prev.to, until: nxt.start, nextRoute: nxt.route, nextFrom: nxt.from, nextTrip: nxt.i };
       // Look where the next trip starts; only look where the last one ended for the first 10 minutes.
-      var guess = layoverGuess_(nxt.fromId, vp, D.nowSec) ||
-        (D.nowSec - prev.endEpoch < 600 ? layoverGuess_(prev.toId, vp, D.nowSec) : null);
+      // (Skipped when OC Transpo already told us which bus is assigned.)
+      var guess = res.assigned ? null : (layoverGuess_(nxt.fromId, vp, D.nowSec) ||
+        (D.nowSec - prev.endEpoch < 600 ? layoverGuess_(prev.toId, vp, D.nowSec) : null));
       if (guess) {
         res.likely = { id: guess.v.id, m: guess.m };
         res.bus = { id: guess.v.id, lat: guess.v.la, lon: guess.v.lo, bearing: guess.v.b, speed: guess.v.sp,
