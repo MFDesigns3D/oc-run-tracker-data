@@ -30,3 +30,22 @@ function diagnoseFeed() {
       (onRun.length ? onRun.map(function (v) { return v.id; }).join(', ') : 'none'));
   });
 }
+
+/**
+ * v4.1 check: does OC Transpo's trip-update feed say which bus is assigned to each trip?
+ * Pick "diagnoseAssigned" in the function menu, click Run, read the Execution log.
+ */
+function diagnoseAssigned() {
+  var j = fetchJson_(TU_URL);
+  var all = 0, withBus = 0, ex = [];
+  (j.Entity || []).forEach(function (e) {
+    var tu = e.TripUpdate;
+    if (!tu || !tu.Trip) return;
+    all++;
+    var v = tu.Vehicle;
+    var id = v ? (v.Id || v.Label || '') : '';
+    if (id) { withBus++; if (ex.length < 5) ex.push('trip ' + tu.Trip.TripId + ' -> bus ' + id); }
+  });
+  Logger.log('Trip updates: ' + all + ', with a bus number: ' + withBus);
+  Logger.log(withBus ? 'Examples: ' + ex.join(' | ') : 'The feed does NOT include bus numbers, so layover lookups fall back to the nearby-bus guess.');
+}
